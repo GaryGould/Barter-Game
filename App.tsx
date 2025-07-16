@@ -1,3 +1,4 @@
+//app.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -50,15 +51,33 @@ const resourceIcons: Record<ResourceType, any> = {
   pottery: require('./assets/Icons/pottery.png'),
   shells: require('./assets/Icons/shell.png'),
 };
+
+//hidden point value to determine trades
+const resourcePointRanges: Record<ResourceType, [number, number]> = {
+  salt: [1, 1],
+  apples: [3, 6],
+  shells: [8, 12],
+  pottery: [9, 15],
+  tools: [20, 25],
+};
+
+const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
+  salt: [3, 25],
+  apples: [2, 8],
+  shells: [1, 4],
+  pottery: [1, 3],
+  tools: [1, 1],
+};
+
 export default function App() {
   const { width, height } = useWindowDimensions();
 
   const [resources, setResources] = useState<Record<ResourceType, number>>({
-    salt: 0,
+    salt: 10,
     apples: 5,
-    tools: 0,
+    tools: 1,
     pottery: 2,
-    shells: 0,
+    shells: 5,
   });
 
   const [npcs, setNpcs] = useState<NPC[]>([
@@ -93,18 +112,54 @@ export default function App() {
 
 const handleNpcPress = (index: number) => {
   const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
-  const give = resourcePool[Math.floor(Math.random() * resourcePool.length)];
-  let want = give;
+
+  // Pick two different resources
+  let give: ResourceType = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+  let want: ResourceType = give;
   while (want === give) {
     want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
   }
 
-  const giveAmount = Math.floor(1 + Math.random() * 2);
-  const wantAmount = Math.floor(1 + Math.random() * 2);
+  // Roll point values
+  const [giveMinVal, giveMaxVal] = resourcePointRanges[give];
+  const giveUnitValue = giveMinVal + Math.random() * (giveMaxVal - giveMinVal);
+
+  const [wantMinVal, wantMaxVal] = resourcePointRanges[want];
+  const wantUnitValue = wantMinVal + Math.random() * (wantMaxVal - wantMinVal);
+
+  // Determine which is more valuable per unit
+  const giveIsExpensive = giveUnitValue > wantUnitValue;
+
+  // Roll quantity for the more valuable item
+  const expensiveResource = giveIsExpensive ? give : want;
+  const [minQty, maxQty] = resourceQuantityRanges[expensiveResource];
+  const expensiveQty = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
+
+  // Compute total value
+  const totalValue = (giveIsExpensive ? giveUnitValue : wantUnitValue) * expensiveQty;
+
+  // Compute needed amount for cheaper resource (rounded up)
+  const cheapUnitValue = giveIsExpensive ? wantUnitValue : giveUnitValue;
+  const cheapQty = Math.ceil(totalValue / cheapUnitValue);
+
+  // Assign final values to trade struct
+  const giveAmount = giveIsExpensive ? expensiveQty : cheapQty;
+  const wantAmount = giveIsExpensive ? cheapQty : expensiveQty;
 
   setTrade({ give, giveAmount, want, wantAmount });
+
+  // Attach debug info
+  (setTrade as any).debug = {
+    giveUnitValue,
+    wantUnitValue,
+    giveTotalValue: giveUnitValue * giveAmount,
+    wantTotalValue: wantUnitValue * wantAmount,
+  };
+
   setSelectedNpcIndex(index);
 };
+
+
 
 
 const handleOptionSelect = (option: 'buy' | 'decline') => {
@@ -201,14 +256,30 @@ const renderOverlay = () => {
 
   return (
 <View style={styles.tradeOverlay}>
+
+  {/* debug trade values*/}
+{(setTrade as any).debug && (
+  <Text style={{ color: 'white', marginBottom: 8, textAlign: 'center' }}>
+    {`${trade.giveAmount} ${trade.give} × ${((setTrade as any).debug.giveUnitValue).toFixed(2)} = ${((setTrade as any).debug.giveTotalValue).toFixed(2)} pts\n` +
+      `${trade.wantAmount} ${trade.want} × ${((setTrade as any).debug.wantUnitValue).toFixed(2)} = ${((setTrade as any).debug.wantTotalValue).toFixed(2)} pts`}
+  </Text>
+)}
+
   {/* Trade Line */}
-  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+<View style={{ alignItems: 'center', marginBottom: 12 }}>
+  <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 4 }}>Selling:</Text>
+  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
     <Image source={resourceIcons[trade.give]} style={{ width: 32, height: 32, marginRight: 8 }} />
-    <Text style={styles.buttonText}>{trade.giveAmount}</Text>
-    <Text style={{ marginHorizontal: 8 }}>→</Text>
-    <Image source={resourceIcons[trade.want]} style={{ width: 32, height: 32, marginRight: 8 }} />
-    <Text style={styles.buttonText}>{trade.wantAmount}</Text>
+    <Text style={styles.buttonText}>{trade.giveAmount} {trade.give}</Text>
   </View>
+
+  <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 4 }}>Wants:</Text>
+  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <Image source={resourceIcons[trade.want]} style={{ width: 32, height: 32, marginRight: 8 }} />
+    <Text style={styles.buttonText}>{trade.wantAmount} {trade.want}</Text>
+  </View>
+</View>
+
 
   {/* Accept + Decline buttons side by side */}
   <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
