@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   StyleSheet,
+  Image
 } from 'react-native';
 import { styles } from './styles';
 import {
@@ -35,7 +36,20 @@ type NPC = {
   speed: number;
 };
 type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells';
+type Trade = {
+  give: ResourceType;
+  giveAmount: number;
+  want: ResourceType;
+  wantAmount: number;
+};
 
+const resourceIcons: Record<ResourceType, any> = {
+  salt: require('./assets/Icons/Salt.png'),
+  apples: require('./assets/Icons/apple.png'),
+  tools: require('./assets/Icons/Tools.png'),
+  pottery: require('./assets/Icons/pottery.png'),
+  shells: require('./assets/Icons/shell.png'),
+};
 export default function App() {
   const { width, height } = useWindowDimensions();
 
@@ -43,7 +57,7 @@ export default function App() {
     salt: 0,
     apples: 5,
     tools: 0,
-    pottery: 0,
+    pottery: 2,
     shells: 0,
   });
 
@@ -74,61 +88,89 @@ export default function App() {
     },
   ]);
 
+  const [trade, setTrade] = useState<Trade | null>(null);
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
 
-  const handleNpcPress = (index: number) => {
-    setSelectedNpcIndex(index);
-  };
+const handleNpcPress = (index: number) => {
+  const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+  const give = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+  let want = give;
+  while (want === give) {
+    want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+  }
 
-  const handleOptionSelect = (option: 'buy' | 'decline') => {
-    if (selectedNpcIndex === null) return;
+  const giveAmount = Math.floor(1 + Math.random() * 2);
+  const wantAmount = Math.floor(1 + Math.random() * 2);
 
-    const index = selectedNpcIndex;
-    const exitDirection: Direction = Math.random() < 0.5 ? 'left' : 'right';
-    const enterDirection: Direction = Math.random() < 0.5 ? 'left' : 'right';
+  setTrade({ give, giveAmount, want, wantAmount });
+  setSelectedNpcIndex(index);
+};
+
+
+const handleOptionSelect = (option: 'buy' | 'decline') => {
+  if (selectedNpcIndex === null) return;
+
+  if (option === 'buy' && trade) {
+    const playerHasEnough = resources[trade.want] >= trade.wantAmount;
+    if (playerHasEnough) {
+      setResources(prev => ({
+        ...prev,
+        [trade.want]: prev[trade.want] - trade.wantAmount,
+        [trade.give]: prev[trade.give] + trade.giveAmount,
+      }));
+    } else {
+      return; // Not enough, abort
+    }
+  }
+
+  const index = selectedNpcIndex;
+  const exitDirection: Direction = Math.random() < 0.5 ? 'left' : 'right';
+  const enterDirection: Direction = Math.random() < 0.5 ? 'left' : 'right';
+
+  setNpcs(prev => {
+    const updated = [...prev];
+    updated[index] = {
+      ...updated[index],
+      direction: exitDirection,
+      visible: false,
+    };
+    return updated;
+  });
+
+  const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
+
+  setTimeout(() => {
+    const newNpc: NPC = {
+      id: Math.floor(Math.random() * 10000),
+      key: Date.now().toString(),
+      sprite: require('./assets/npc1.png'),
+      visible: false,
+      direction: enterDirection,
+      speed: Math.floor(200 + Math.random() * 100),
+    };
 
     setNpcs(prev => {
       const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        direction: exitDirection,
-        visible: false,
-      };
+      updated[index] = newNpc;
       return updated;
     });
 
-    const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
-
     setTimeout(() => {
-      const newNpc: NPC = {
-        id: Math.floor(Math.random() * 10000),
-        key: Date.now().toString(),
-        sprite: require('./assets/npc1.png'),
-        visible: false,
-        direction: enterDirection,
-        speed: Math.floor(200 + Math.random() * 100),
-      };
-
       setNpcs(prev => {
         const updated = [...prev];
-        updated[index] = newNpc;
+        updated[index] = {
+          ...updated[index],
+          visible: true,
+        };
         return updated;
       });
+    }, 0);
+  }, safeExitDelay);
 
-      setTimeout(() => {
-        setNpcs(prev => {
-          const updated = [...prev];
-          updated[index] = {
-            ...updated[index],
-            visible: true,
-          };
-          return updated;
-        });
-      }, 0);
-    }, safeExitDelay);
+  setSelectedNpcIndex(null);
+  setTrade(null);
+};
 
-    setSelectedNpcIndex(null);
-  };
 
 const renderNpcRow = () => (
   <View style={styles.npcRow}>
@@ -152,16 +194,44 @@ const renderResourceSection = () => (
   </View>
 );
 
-const renderOverlay = () => (
-  <View style={styles.overlay}>
-    <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect('buy')}>
-      <Text style={styles.buttonText}>Buy</Text>
+const renderOverlay = () => {
+  if (!trade) return null;
+
+  const hasEnough = resources[trade.want] >= trade.wantAmount;
+
+  return (
+<View style={styles.tradeOverlay}>
+  {/* Trade Line */}
+  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+    <Image source={resourceIcons[trade.give]} style={{ width: 32, height: 32, marginRight: 8 }} />
+    <Text style={styles.buttonText}>{trade.giveAmount}</Text>
+    <Text style={{ marginHorizontal: 8 }}>→</Text>
+    <Image source={resourceIcons[trade.want]} style={{ width: 32, height: 32, marginRight: 8 }} />
+    <Text style={styles.buttonText}>{trade.wantAmount}</Text>
+  </View>
+
+  {/* Accept + Decline buttons side by side */}
+  <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
+    <TouchableOpacity
+      style={[styles.button, { opacity: hasEnough ? 1 : 0.5 }]}
+      onPress={() => hasEnough && handleOptionSelect('buy')}
+      disabled={!hasEnough}
+    >
+      <Text style={styles.buttonText}>Accept</Text>
     </TouchableOpacity>
-    <TouchableOpacity style={styles.button} onPress={() => handleOptionSelect('decline')}>
+
+    <TouchableOpacity
+      style={styles.button}
+      onPress={() => handleOptionSelect('decline')}
+    >
       <Text style={styles.buttonText}>Decline</Text>
     </TouchableOpacity>
   </View>
-);
+</View>
+
+  );
+};
+
 
 return (
   <View style={styles.containerWrapper}>

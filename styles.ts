@@ -59,7 +59,7 @@ containerWrapper: {
     fontSize: 16,
     fontWeight: 'bold',
   },
-  overlay: {
+  tradeOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -69,9 +69,10 @@ containerWrapper: {
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     zIndex: 10,
-    flexDirection: 'row',
-    gap: 16,
+    flexDirection: 'column',
+    gap: 12,
   },
+
   blackOverlayBox: {
     position: 'absolute',
     bottom: 0,
