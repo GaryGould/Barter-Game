@@ -19,6 +19,7 @@ import {
   MAX_PHONE_WIDTH,
 } from './normalize';
 
+//walls on sides to hide exiting villages in wider screens
 const wallWidth = 600;
 const wallLeftPos = 0 - wallWidth;
 const wallRightPos = 0 - wallWidth;
@@ -53,7 +54,7 @@ const resourceIcons: Record<ResourceType, any> = {
   shells: require('./assets/Icons/shell.png'),
 };
 
-//hidden point value to determine trades
+// Each resource has a hidden point value range used during trade generation
 const resourcePointRanges: Record<ResourceType, [number, number]> = {
   salt: [1, 1],
   apples: [3, 6],
@@ -62,6 +63,7 @@ const resourcePointRanges: Record<ResourceType, [number, number]> = {
   tools: [20, 25],
 };
 
+// Used to determine how many units of each resource can appear in trade generation
 const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
   salt: [3, 25],
   apples: [2, 8],
@@ -81,6 +83,8 @@ export default function App() {
     shells: 5,
   });
 
+
+  //clickable npc traders
   const [npcs, setNpcs] = useState<NPC[]>([
     {
       id: 1,
@@ -109,105 +113,67 @@ export default function App() {
   ]);
 
   const [trade, setTrade] = useState<Trade | null>(null);
+  const [playerOffer, setPlayerOffer] = useState<Partial<Record<ResourceType, number>>>({});
+
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
 
-
-const handleNpcPress = (index: number) => {
+  // Called when player taps on an NPC to initiate trade
+  const handleNpcPress = (index: number) => {
   const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
-  const generateUnitValue = (resource: ResourceType): number => {
-    const [min, max] = resourcePointRanges[resource];
-    return min + Math.random() * (max - min);
+  // When a trade starts, each resource is assigned a fixed value that lasts the whole trade
+  const assignUnitValues = (): Record<ResourceType, number> => {
+    const unitValues: Record<ResourceType, number> = {} as Record<ResourceType, number>;
+    resourcePool.forEach(resource => {
+      const [min, max] = resourcePointRanges[resource];
+      const randomValue = min + Math.random() * (max - min);
+      unitValues[resource] = parseFloat(randomValue.toFixed(2));
+    });
+    return unitValues;
   };
 
-  const generateTrade = (forceAffordable = false): Trade | null => {
+  const generateTrade = (unitValues: Record<ResourceType, number>, forceAffordable = false): Trade | null => {
+
+    // Randomly choose different resource types for NPC's offer vs what they want
     let give: ResourceType = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     let want: ResourceType = give;
     while (want === give) {
       want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     }
 
-    const giveUnitValue = generateUnitValue(give);
-    const wantUnitValue = generateUnitValue(want);
+    const giveUnitValue = unitValues[give];
+    const wantUnitValue = unitValues[want];
 
-    const giveIsExpensive = giveUnitValue > wantUnitValue;
+    const [minGiveQty, maxGiveQty] = resourceQuantityRanges[give];
+    const giveAmount = Math.floor(Math.random() * (maxGiveQty - minGiveQty + 1)) + minGiveQty;
+    const totalValue = giveAmount * giveUnitValue;
+    const wantAmount = Math.ceil(totalValue / wantUnitValue);
 
-    const expensive = giveIsExpensive ? give : want;
-    const cheap = giveIsExpensive ? want : give;
 
-    const [minQty, maxQty] = resourceQuantityRanges[expensive];
-    const expQty = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
-    const totalValue = expQty * (giveIsExpensive ? giveUnitValue : wantUnitValue);
-    const cheapQty = Math.ceil(totalValue / (giveIsExpensive ? wantUnitValue : giveUnitValue));
 
-    const giveAmount = giveIsExpensive ? expQty : cheapQty;
-    const wantAmount = giveIsExpensive ? cheapQty : expQty;
-
-    const playerCanAfford = resources[want] >= wantAmount;
-
-    if (!forceAffordable || playerCanAfford) {
-      setTrade({ give, giveAmount, want, wantAmount });
-      (setTrade as any).debug = {
-        giveUnitValue,
-        wantUnitValue,
-        giveTotalValue: giveUnitValue * giveAmount,
-        wantTotalValue: wantUnitValue * wantAmount,
-        forced: forceAffordable,
-      };
-      return { give, giveAmount, want, wantAmount };
-    }
-
-    // Fallback: pick a want item from player's inventory
-    const affordableResources = resourcePool.filter(r => resources[r] > 0);
-    if (affordableResources.length === 0) return null;
-
-    const fallbackWant = affordableResources[Math.floor(Math.random() * affordableResources.length)];
-    const fallbackWantUnit = generateUnitValue(fallbackWant);
-
-    const fallbackMax = Math.min(resourceQuantityRanges[fallbackWant][1], resources[fallbackWant]);
-    const fallbackMin = resourceQuantityRanges[fallbackWant][0];
-    if (fallbackMax < fallbackMin) return null;
-
-    const fallbackWantQty = Math.floor(Math.random() * (fallbackMax - fallbackMin + 1)) + fallbackMin;
-    const fallbackTotalValue = fallbackWantQty * fallbackWantUnit;
-
-    let fallbackGive = fallbackWant;
-    while (fallbackGive === fallbackWant) {
-      fallbackGive = resourcePool[Math.floor(Math.random() * resourcePool.length)];
-    }
-
-    const fallbackGiveUnit = generateUnitValue(fallbackGive);
-    const fallbackGiveQty = Math.ceil(fallbackTotalValue / fallbackGiveUnit);
-
-    setTrade({
-      give: fallbackGive,
-      giveAmount: fallbackGiveQty,
-      want: fallbackWant,
-      wantAmount: fallbackWantQty,
-    });
-
-    (setTrade as any).debug = {
-      giveUnitValue: fallbackGiveUnit,
-      wantUnitValue: fallbackWantUnit,
-      giveTotalValue: fallbackGiveUnit * fallbackGiveQty,
-      wantTotalValue: fallbackWantUnit * fallbackWantQty,
-    };
-
-    return {
-      give: fallbackGive,
-      giveAmount: fallbackGiveQty,
-      want: fallbackWant,
-      wantAmount: fallbackWantQty,
-    };
+    
+const tradeData: Trade = { give, giveAmount, want, wantAmount };
+setTrade(tradeData);
+(setTrade as any).debug = {
+  unitValues,
+  giveUnitValue,
+  wantUnitValue,
+  giveTotalValue: giveUnitValue * giveAmount,
+};
+return tradeData;
   };
 
-  fairTradeCounter = (fairTradeCounter + 1) % 3;
-const trade = generateTrade(fairTradeCounter === 0) || generateTrade(false);
-if (!trade) return;
+  // generate all unit values once per trade, store for consistent fairness
+  const unitValues = assignUnitValues();
 
-setTrade(trade);
-setSelectedNpcIndex(index);
+  fairTradeCounter = (fairTradeCounter + 1) % 3;
+const newTrade = generateTrade(unitValues);
+  if (!newTrade) return;
+
+  setTrade(newTrade);
+  setSelectedNpcIndex(index);
 };
+
 
 
 
@@ -217,16 +183,26 @@ const handleOptionSelect = (option: 'buy' | 'decline') => {
   if (selectedNpcIndex === null) return;
 
   if (option === 'buy' && trade) {
-    const playerHasEnough = resources[trade.want] >= trade.wantAmount;
-    if (playerHasEnough) {
-      setResources(prev => ({
-        ...prev,
-        [trade.want]: prev[trade.want] - trade.wantAmount,
-        [trade.give]: prev[trade.give] + trade.giveAmount,
-      }));
-    } else {
-      return; // Not enough, abort
-    }
+const unitValues = (setTrade as any).debug?.unitValues || {};
+const playerTotal = Object.entries(playerOffer).reduce((total, [key, amount]) => {
+  return total + (unitValues[key as ResourceType] || 0) * (amount || 0);
+}, 0);
+
+const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
+
+if (playerTotal >= npcTotal) {
+  // Player gives the offered items
+  const newResources = { ...resources };
+
+
+  // Player receives the NPC's item
+  newResources[trade.give] += trade.giveAmount;
+
+  setResources(newResources);
+} else {
+  return; // Not enough value
+}
+
   }
 
   const index = selectedNpcIndex;
@@ -275,6 +251,8 @@ const handleOptionSelect = (option: 'buy' | 'decline') => {
 
   setSelectedNpcIndex(null);
   setTrade(null);
+  setPlayerOffer({});
+
 };
 
 
@@ -286,81 +264,148 @@ const renderNpcRow = () => (
   </View>
 );
 
+// Render the player's resource inventory with tap-to-offer logic
 const renderResourceSection = () => (
   <View style={styles.resourceSection}>
-    <View style={styles.resourceRow}>
-      <ResourceDisplay name="salt" amount={resources.salt} />
-      <ResourceDisplay name="apples" amount={resources.apples} />
-    </View>
-    <View style={styles.resourceRow}>
-      <ResourceDisplay name="tools" amount={resources.tools} />
-      <ResourceDisplay name="pottery" amount={resources.pottery} />
-      <ResourceDisplay name="shells" amount={resources.shells} />
-    </View>
+    {([['salt', 'apples'], ['tools', 'pottery', 'shells']] as ResourceType[][]).map((row, i) => (
+      <View key={i} style={styles.resourceRow}>
+        {row.map((res: ResourceType) => {
+          const isDisabled = !trade || resources[res] <= 0;
+          return (
+            <TouchableOpacity
+              key={res}
+              disabled={isDisabled}
+              onPress={() => {
+                if (isDisabled) return;
+                // Remove from player inventory
+                setResources(prev => ({
+                  ...prev,
+                  [res]: prev[res] - 1,
+                }));
+                // Add to offer
+                setPlayerOffer(prev => ({
+                  ...prev,
+                  [res]: (prev[res] || 0) + 1,
+                }));
+              }}
+            >
+              <ResourceDisplay name={res} amount={resources[res]} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    ))}
   </View>
 );
+
+
+
 
 const renderOverlay = () => {
   if (!trade) return null;
 
-  const hasEnough = resources[trade.want] >= trade.wantAmount;
+  const unitValues = (setTrade as any).debug?.unitValues || {};
+  const npcValue = (unitValues[trade.give] || 0) * trade.giveAmount;
+
+  const playerTotal = Object.entries(playerOffer).reduce((sum, [res, qty]) => {
+    return sum + (unitValues[res as ResourceType] || 0) * (qty || 0);
+  }, 0);
+
+  const hasEnough = playerTotal >= npcValue;
 
   return (
-<View style={styles.tradeOverlay}>
-
-  {/* debug trade values*/}
-{(setTrade as any).debug && (
-  <View style={{ marginBottom: 12 }}>
-    <Text style={{ color: 'white', textAlign: 'center', fontSize: 14 }}>
-      {(setTrade as any).debug.forced ? 'Fair trade (forced)' : 'Normal trade'}
-    </Text>
-    <Text style={{ color: 'white', textAlign: 'center', fontSize: 14, marginTop: 4 }}>
-      {`${trade.giveAmount} ${trade.give} × ${(setTrade as any).debug.giveUnitValue.toFixed(2)} = ${(setTrade as any).debug.giveTotalValue.toFixed(2)} pts`}
-    </Text>
-    <Text style={{ color: 'white', textAlign: 'center', fontSize: 14 }}>
-      {`${trade.wantAmount} ${trade.want} × ${(setTrade as any).debug.wantUnitValue.toFixed(2)} = ${(setTrade as any).debug.wantTotalValue.toFixed(2)} pts`}
-    </Text>
-  </View>
-)}
-
-
-  {/* Trade Line */}
-<View style={{ alignItems: 'center', marginBottom: 12 }}>
-  <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 4 }}>Selling:</Text>
-  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-    <Image source={resourceIcons[trade.give]} style={{ width: 32, height: 32, marginRight: 8 }} />
-    <Text style={styles.buttonText}>{trade.giveAmount} {trade.give}</Text>
-  </View>
-
-  <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 4 }}>Wants:</Text>
-  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-    <Image source={resourceIcons[trade.want]} style={{ width: 32, height: 32, marginRight: 8 }} />
-    <Text style={styles.buttonText}>{trade.wantAmount} {trade.want}</Text>
-  </View>
-</View>
-
-
-  {/* Accept + Decline buttons side by side */}
-  <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
-    <TouchableOpacity
-      style={[styles.button, { opacity: hasEnough ? 1 : 0.5 }]}
-      onPress={() => hasEnough && handleOptionSelect('buy')}
-      disabled={!hasEnough}
+    <View
+      style={{
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+      }}
+      pointerEvents="box-none"
     >
-      <Text style={styles.buttonText}>Accept</Text>
-    </TouchableOpacity>
+      <View
+        style={{
+          backgroundColor: 'white',
+          padding: 20,
+          borderRadius: 12,
+          alignItems: 'center',
+          maxWidth: 320,
+          width: '100%',
+        }}
+        pointerEvents="auto"
+      >
+        {/* Value Comparison */}
+        <Text style={{ textAlign: 'center', fontSize: 16, marginBottom: 10 }}>
+          Trader's Offer: {npcValue.toFixed(2)} pts
+        </Text>
+        <Text style={{ textAlign: 'center', fontSize: 16, marginBottom: 16 }}>
+          Your Offer: {playerTotal.toFixed(2)} pts
+        </Text>
 
-    <TouchableOpacity
-      style={styles.button}
-      onPress={() => handleOptionSelect('decline')}
-    >
-      <Text style={styles.buttonText}>Decline</Text>
-    </TouchableOpacity>
-  </View>
-</View>
+        {/* Trader Offer */}
+        <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Trader Offers:</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <Image source={resourceIcons[trade.give]} style={{ width: 32, height: 32, marginRight: 8 }} />
+          <Text>{trade.giveAmount} {trade.give}</Text>
+        </View>
 
+        {/* Player Offer */}
+        <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Your Offer:</Text>
+        {Object.entries(playerOffer).length === 0 ? (
+          <Text style={{ color: 'gray', marginBottom: 6 }}>(Tap your items below to offer)</Text>
+        ) : (
+          Object.entries(playerOffer).map(([key, amount]) => (
+            <TouchableOpacity
+              key={key}
+              onPress={() => {
+                setPlayerOffer(prev => {
+                  const updated = { ...prev };
+                  if (updated[key as ResourceType]! > 1) {
+                    updated[key as ResourceType]!--;
+                  } else {
+                    delete updated[key as ResourceType];
+                  }
+                  return updated;
+                });
+                setResources(prev => ({
+                  ...prev,
+                  [key as ResourceType]: prev[key as ResourceType] + 1,
+                }));
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <Image source={resourceIcons[key as ResourceType]} style={{ width: 24, height: 24, marginRight: 6 }} />
+                <Text>{amount} {key}</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+
+        {/* Accept Trade(if player has offered enough) / Decline (return items)*/}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 16 }}>
+          <TouchableOpacity
+            style={[styles.button, { opacity: hasEnough ? 1 : 0.5 }]}
+            onPress={() => hasEnough && handleOptionSelect('buy')}
+            disabled={!hasEnough}
+          >
+            <Text style={styles.buttonText}>Accept</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => handleOptionSelect('decline')}
+          >
+            <Text style={styles.buttonText}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 };
+
+
+
 
 
 return (
