@@ -22,6 +22,7 @@ import {
 const wallWidth = 600;
 const wallLeftPos = 0 - wallWidth;
 const wallRightPos = 0 - wallWidth;
+let fairTradeCounter = 0;
 
 import { NPCSlot } from './components/NPCSlot';
 import { ResourceDisplay } from './components/ResourceDisplay';
@@ -110,54 +111,104 @@ export default function App() {
   const [trade, setTrade] = useState<Trade | null>(null);
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
 
+
 const handleNpcPress = (index: number) => {
   const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
-  // Pick two different resources
-  let give: ResourceType = resourcePool[Math.floor(Math.random() * resourcePool.length)];
-  let want: ResourceType = give;
-  while (want === give) {
-    want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
-  }
-
-  // Roll point values
-  const [giveMinVal, giveMaxVal] = resourcePointRanges[give];
-  const giveUnitValue = giveMinVal + Math.random() * (giveMaxVal - giveMinVal);
-
-  const [wantMinVal, wantMaxVal] = resourcePointRanges[want];
-  const wantUnitValue = wantMinVal + Math.random() * (wantMaxVal - wantMinVal);
-
-  // Determine which is more valuable per unit
-  const giveIsExpensive = giveUnitValue > wantUnitValue;
-
-  // Roll quantity for the more valuable item
-  const expensiveResource = giveIsExpensive ? give : want;
-  const [minQty, maxQty] = resourceQuantityRanges[expensiveResource];
-  const expensiveQty = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
-
-  // Compute total value
-  const totalValue = (giveIsExpensive ? giveUnitValue : wantUnitValue) * expensiveQty;
-
-  // Compute needed amount for cheaper resource (rounded up)
-  const cheapUnitValue = giveIsExpensive ? wantUnitValue : giveUnitValue;
-  const cheapQty = Math.ceil(totalValue / cheapUnitValue);
-
-  // Assign final values to trade struct
-  const giveAmount = giveIsExpensive ? expensiveQty : cheapQty;
-  const wantAmount = giveIsExpensive ? cheapQty : expensiveQty;
-
-  setTrade({ give, giveAmount, want, wantAmount });
-
-  // Attach debug info
-  (setTrade as any).debug = {
-    giveUnitValue,
-    wantUnitValue,
-    giveTotalValue: giveUnitValue * giveAmount,
-    wantTotalValue: wantUnitValue * wantAmount,
+  const generateUnitValue = (resource: ResourceType): number => {
+    const [min, max] = resourcePointRanges[resource];
+    return min + Math.random() * (max - min);
   };
 
-  setSelectedNpcIndex(index);
+  const generateTrade = (forceAffordable = false): Trade | null => {
+    let give: ResourceType = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+    let want: ResourceType = give;
+    while (want === give) {
+      want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+    }
+
+    const giveUnitValue = generateUnitValue(give);
+    const wantUnitValue = generateUnitValue(want);
+
+    const giveIsExpensive = giveUnitValue > wantUnitValue;
+
+    const expensive = giveIsExpensive ? give : want;
+    const cheap = giveIsExpensive ? want : give;
+
+    const [minQty, maxQty] = resourceQuantityRanges[expensive];
+    const expQty = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
+    const totalValue = expQty * (giveIsExpensive ? giveUnitValue : wantUnitValue);
+    const cheapQty = Math.ceil(totalValue / (giveIsExpensive ? wantUnitValue : giveUnitValue));
+
+    const giveAmount = giveIsExpensive ? expQty : cheapQty;
+    const wantAmount = giveIsExpensive ? cheapQty : expQty;
+
+    const playerCanAfford = resources[want] >= wantAmount;
+
+    if (!forceAffordable || playerCanAfford) {
+      setTrade({ give, giveAmount, want, wantAmount });
+      (setTrade as any).debug = {
+        giveUnitValue,
+        wantUnitValue,
+        giveTotalValue: giveUnitValue * giveAmount,
+        wantTotalValue: wantUnitValue * wantAmount,
+        forced: forceAffordable,
+      };
+      return { give, giveAmount, want, wantAmount };
+    }
+
+    // Fallback: pick a want item from player's inventory
+    const affordableResources = resourcePool.filter(r => resources[r] > 0);
+    if (affordableResources.length === 0) return null;
+
+    const fallbackWant = affordableResources[Math.floor(Math.random() * affordableResources.length)];
+    const fallbackWantUnit = generateUnitValue(fallbackWant);
+
+    const fallbackMax = Math.min(resourceQuantityRanges[fallbackWant][1], resources[fallbackWant]);
+    const fallbackMin = resourceQuantityRanges[fallbackWant][0];
+    if (fallbackMax < fallbackMin) return null;
+
+    const fallbackWantQty = Math.floor(Math.random() * (fallbackMax - fallbackMin + 1)) + fallbackMin;
+    const fallbackTotalValue = fallbackWantQty * fallbackWantUnit;
+
+    let fallbackGive = fallbackWant;
+    while (fallbackGive === fallbackWant) {
+      fallbackGive = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+    }
+
+    const fallbackGiveUnit = generateUnitValue(fallbackGive);
+    const fallbackGiveQty = Math.ceil(fallbackTotalValue / fallbackGiveUnit);
+
+    setTrade({
+      give: fallbackGive,
+      giveAmount: fallbackGiveQty,
+      want: fallbackWant,
+      wantAmount: fallbackWantQty,
+    });
+
+    (setTrade as any).debug = {
+      giveUnitValue: fallbackGiveUnit,
+      wantUnitValue: fallbackWantUnit,
+      giveTotalValue: fallbackGiveUnit * fallbackGiveQty,
+      wantTotalValue: fallbackWantUnit * fallbackWantQty,
+    };
+
+    return {
+      give: fallbackGive,
+      giveAmount: fallbackGiveQty,
+      want: fallbackWant,
+      wantAmount: fallbackWantQty,
+    };
+  };
+
+  fairTradeCounter = (fairTradeCounter + 1) % 3;
+const trade = generateTrade(fairTradeCounter === 0) || generateTrade(false);
+if (!trade) return;
+
+setTrade(trade);
+setSelectedNpcIndex(index);
 };
+
 
 
 
@@ -259,11 +310,19 @@ const renderOverlay = () => {
 
   {/* debug trade values*/}
 {(setTrade as any).debug && (
-  <Text style={{ color: 'white', marginBottom: 8, textAlign: 'center' }}>
-    {`${trade.giveAmount} ${trade.give} × ${((setTrade as any).debug.giveUnitValue).toFixed(2)} = ${((setTrade as any).debug.giveTotalValue).toFixed(2)} pts\n` +
-      `${trade.wantAmount} ${trade.want} × ${((setTrade as any).debug.wantUnitValue).toFixed(2)} = ${((setTrade as any).debug.wantTotalValue).toFixed(2)} pts`}
-  </Text>
+  <View style={{ marginBottom: 12 }}>
+    <Text style={{ color: 'white', textAlign: 'center', fontSize: 14 }}>
+      {(setTrade as any).debug.forced ? 'Fair trade (forced)' : 'Normal trade'}
+    </Text>
+    <Text style={{ color: 'white', textAlign: 'center', fontSize: 14, marginTop: 4 }}>
+      {`${trade.giveAmount} ${trade.give} × ${(setTrade as any).debug.giveUnitValue.toFixed(2)} = ${(setTrade as any).debug.giveTotalValue.toFixed(2)} pts`}
+    </Text>
+    <Text style={{ color: 'white', textAlign: 'center', fontSize: 14 }}>
+      {`${trade.wantAmount} ${trade.want} × ${(setTrade as any).debug.wantUnitValue.toFixed(2)} = ${(setTrade as any).debug.wantTotalValue.toFixed(2)} pts`}
+    </Text>
+  </View>
 )}
+
 
   {/* Trade Line */}
 <View style={{ alignItems: 'center', marginBottom: 12 }}>
