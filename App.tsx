@@ -25,6 +25,8 @@ const wallLeftPos = 0 - wallWidth;
 const wallRightPos = 0 - wallWidth;
 let fairTradeCounter = 0;
 
+//import components
+import { TradeScale } from './components/TradeScale';
 import { NPCSlot } from './components/NPCSlot';
 import { ResourceDisplay } from './components/ResourceDisplay';
 
@@ -38,7 +40,7 @@ type NPC = {
   direction: Direction;
   speed: number;
 };
-type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells';
+export type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells';
 type Trade = {
   give: ResourceType;
   giveAmount: number;
@@ -335,52 +337,25 @@ const renderOverlay = () => {
         }}
         pointerEvents="auto"
       >
-        {/* Value Comparison */}
-        <Text style={{ textAlign: 'center', fontSize: 16, marginBottom: 10 }}>
-          Trader's Offer: {npcValue.toFixed(2)} pts
-        </Text>
-        <Text style={{ textAlign: 'center', fontSize: 16, marginBottom: 16 }}>
-          Your Offer: {playerTotal.toFixed(2)} pts
-        </Text>
+      {/* Scale Visualization */}
+      <TradeScale
+        playerOffer={playerOffer}
+        npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
+        unitValues={unitValues}
+      />
 
-        {/* Trader Offer */}
-        <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Trader Offers:</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Image source={resourceIcons[trade.give]} style={{ width: 32, height: 32, marginRight: 8 }} />
-          <Text>{trade.giveAmount} {trade.give}</Text>
-        </View>
+      {/* Debug value display */}
+      <View style={{ position: 'absolute', left: -300, top: 0 }}>
+        <Text style={{ fontSize: 16 }}>
+          (Debug) Trader's Offer: {npcValue.toFixed(2)} pts
+        </Text>
+        <Text style={{ fontSize: 16 }}>
+          (Debug) Your Offer: {playerTotal.toFixed(2)} pts
+        </Text>
+      </View>
 
-        {/* Player Offer */}
-        <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>Your Offer:</Text>
-        {Object.entries(playerOffer).length === 0 ? (
-          <Text style={{ color: 'gray', marginBottom: 6 }}>(Tap your items below to offer)</Text>
-        ) : (
-          Object.entries(playerOffer).map(([key, amount]) => (
-            <TouchableOpacity
-              key={key}
-              onPress={() => {
-                setPlayerOffer(prev => {
-                  const updated = { ...prev };
-                  if (updated[key as ResourceType]! > 1) {
-                    updated[key as ResourceType]!--;
-                  } else {
-                    delete updated[key as ResourceType];
-                  }
-                  return updated;
-                });
-                setResources(prev => ({
-                  ...prev,
-                  [key as ResourceType]: prev[key as ResourceType] + 1,
-                }));
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                <Image source={resourceIcons[key as ResourceType]} style={{ width: 24, height: 24, marginRight: 6 }} />
-                <Text>{amount} {key}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
+
+
 
         {/* Accept Trade(if player has offered enough) / Decline (return items)*/}
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 16 }}>
