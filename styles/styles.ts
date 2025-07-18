@@ -88,7 +88,7 @@ wallSide: {
   position: 'absolute',
   top: 0,
   bottom: 0,
-  backgroundColor: '#000',
+  backgroundColor: 'black',
   zIndex: 99,
 },
 resourceSection: {

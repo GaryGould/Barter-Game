@@ -44,7 +44,9 @@ type NPC = {
   visible: boolean;
   direction: Direction;
   speed: number;
+  selling: ResourceType;
 };
+
 
 
 export type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells';
@@ -161,32 +163,29 @@ export default function App() {
   }
   
   //clickable npc traders
-  const [npcs, setNpcs] = useState<NPC[]>([
-    {
-      id: 1,
-      key: 'npc-1',
-      sprite: require('./assets/npc1.png'),
+  const [npcs, setNpcs] = useState<NPC[]>(Array.from({ length: 3 }, (_, i) => {
+    const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    const selling = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+
+    const spriteMap: Record<ResourceType, any> = {
+      salt: require('./assets/npc_salt.png'),
+      apples: require('./assets/npc_apples.png'),
+      tools: require('./assets/npc_tools.png'),
+      pottery: require('./assets/npc_pottery.png'),
+      shells: require('./assets/npc_shells.png'),
+    };
+
+    return {
+      id: i + 1,
+      key: `npc-${i + 1}`,
+      sprite: spriteMap[selling],
+      selling,
       visible: true,
-      direction: 'left',
+      direction: Math.random() < 0.5 ? 'left' : 'right',
       speed: Math.floor(200 + Math.random() * 100),
-    },
-    {
-      id: 2,
-      key: 'npc-2',
-      sprite: require('./assets/npc1.png'),
-      visible: true,
-      direction: 'right',
-      speed: Math.floor(200 + Math.random() * 100),
-    },
-    {
-      id: 3,
-      key: 'npc-3',
-      sprite: require('./assets/npc1.png'),
-      visible: true,
-      direction: 'left',
-      speed: Math.floor(200 + Math.random() * 100),
-    },
-  ]);
+    };
+  }));
+  
 
   //trade values
   const [trade, setTrade] = useState<Trade | null>(null);
@@ -201,8 +200,8 @@ export default function App() {
     const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
     // Choose different give/want resources
-    let give: ResourceType = resourcePool[Math.floor(Math.random() * resourcePool.length)];
-    let want: ResourceType = give;
+    const npc = npcs[index];
+    const give: ResourceType = npc.selling;    let want: ResourceType = give;
     while (want === give) {
       want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     }
@@ -299,10 +298,22 @@ if (playerTotal >= npcTotal) {
   const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
 
   setTimeout(() => {
+    const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    const selling = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+
+    const spriteMap: Record<ResourceType, any> = {
+      salt: require('./assets/npc_salt.png'),
+      apples: require('./assets/npc_apples.png'),
+      tools: require('./assets/npc_tools.png'),
+      pottery: require('./assets/npc_pottery.png'),
+      shells: require('./assets/npc_shells.png'),
+    };
+
     const newNpc: NPC = {
       id: Math.floor(Math.random() * 10000),
       key: Date.now().toString(),
-      sprite: require('./assets/npc1.png'),
+      sprite: spriteMap[selling],
+      selling,
       visible: false,
       direction: enterDirection,
       speed: Math.floor(200 + Math.random() * 100),
@@ -548,6 +559,7 @@ const renderResourceSection = () => (
 
 
 return (
+  
   <View style={styles.containerWrapper}>
     {/* Top Tab */}
     {showWorldEvent && (
@@ -584,12 +596,30 @@ return (
     </View>
 
     {/* Left/Right Walls (only for wide screens) */}
+    {/* Left/Right Walls (only for wide screens) */}
     {width > MAX_PHONE_WIDTH && (
-      <View style={[styles.wallSide, { width: 600, left: -600 }]} />
+      <>
+        <View
+          style={[
+            styles.wallSide,
+            {
+              width: wallWidth,
+              left: (width - TOTAL_SCENE_WIDTH) / 2 - wallWidth,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.wallSide,
+            {
+              width: wallWidth,
+              left: (width + TOTAL_SCENE_WIDTH) / 2,
+            },
+          ]}
+        />
+      </>
     )}
-    {width > MAX_PHONE_WIDTH && (
-      <View style={[styles.wallSide, { width: 600, right: -600 }]} />
-    )}
+
   </View>
 );
 

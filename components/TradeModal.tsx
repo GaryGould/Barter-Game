@@ -85,13 +85,19 @@ export const TradeModal = ({
             {/* Accept / Decline Buttons */}
             <View style={styles.buttonRow}>
                 <TouchableOpacity
-                    style={[styles.button, !hasEnough && styles.disabledButton]}
+                    style={[
+                        styles.fullButtonWrapper,
+                        !hasEnough && styles.disabledButton,
+                    ]}
                     onPress={onAccept}
                     disabled={!hasEnough}
                 >
                     <Text style={styles.buttonText}>Accept</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={onDecline}>
+                <TouchableOpacity
+                    style={styles.fullButtonWrapper}
+                    onPress={onDecline}
+                >
                     <Text style={styles.buttonText}>Decline</Text>
                 </TouchableOpacity>
             </View>
@@ -196,4 +202,14 @@ const styles = StyleSheet.create({
         gap: 6,
         marginBottom: 12,
     },
+    fullButtonWrapper: {
+        backgroundColor: '#eee',
+        borderWidth: 2,
+        borderColor: '#000',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        marginHorizontal: 20,
+    },
+    
 });
