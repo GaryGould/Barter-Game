@@ -1,12 +1,14 @@
 //app.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   useWindowDimensions,
   StyleSheet,
-  Image
+  Image,
+  Animated
+
 } from 'react-native';
 
 //styles
@@ -25,7 +27,7 @@ import {
 const wallWidth = 600;
 const wallLeftPos = 0 - wallWidth;
 const wallRightPos = 0 - wallWidth;
-let fairTradeCounter = 0;
+
 
 //import components
 import { TradeScale } from './components/TradeScale';
@@ -43,6 +45,8 @@ type NPC = {
   direction: Direction;
   speed: number;
 };
+
+
 export type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells';
 type Trade = {
   give: ResourceType;
@@ -67,9 +71,13 @@ type ResourcePointRanges = {
   neutral: [number, number];
   disliked: [number, number];
 };
+type TradePreferences = {
+  likes: ResourceType[];
+  dislikes: ResourceType[];
+  unitValues: Record<ResourceType, number>;
+};
 
 // Each resource has a hidden point value range used during trade generation
-// Editable point ranges based on trader preferences
 const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
   salt: {
     favored: [1.5, 2],
@@ -108,6 +116,12 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 };
 
 export default function App() {
+
+
+  const [showWorldEvent, setShowWorldEvent] = useState(false);
+  const worldEventTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const worldEventOpacity = useRef(new Animated.Value(0)).current;
+
   const { width, height } = useWindowDimensions();
 
   const [resources, setResources] = useState<Record<ResourceType, number>>({
@@ -118,7 +132,34 @@ export default function App() {
     shells: 5,
   });
 
+  function assignUnitValues(
+    likes: ResourceType[],
+    dislikes: ResourceType[],
+    sell: ResourceType
+  ): Record<ResourceType, number> {
+    const values: Partial<Record<ResourceType, number>> = {};
+    const pool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
+    for (const res of pool) {
+      if (res === sell) {
+        // NPC always sells at neutral price
+        const [min, max] = editablePointRanges[res].neutral;
+        values[res] = Math.random() * (max - min) + min;
+      } else if (likes.includes(res)) {
+        const [min, max] = editablePointRanges[res].favored;
+        values[res] = Math.random() * (max - min) + min;
+      } else if (dislikes.includes(res)) {
+        const [min, max] = editablePointRanges[res].disliked;
+        values[res] = Math.random() * (max - min) + min;
+      } else {
+        const [min, max] = editablePointRanges[res].neutral;
+        values[res] = Math.random() * (max - min) + min;
+      }
+    }
+
+    return values as Record<ResourceType, number>;
+  }
+  
   //clickable npc traders
   const [npcs, setNpcs] = useState<NPC[]>([
     {
@@ -147,73 +188,68 @@ export default function App() {
     },
   ]);
 
+  //trade values
   const [trade, setTrade] = useState<Trade | null>(null);
+  const [tradePreferences, setTradePreferences] = useState<TradePreferences | null>(null);
   const [playerOffer, setPlayerOffer] = useState<Partial<Record<ResourceType, number>>>({});
-
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
+  const [worldEventText, setWorldEventText] = useState<string>('');
+  const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
 
   // Called when player taps on an NPC to initiate trade
   const handleNpcPress = (index: number) => {
-  const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
-  // When a trade starts, each resource is assigned a fixed value that lasts the whole trade
-    const traderPreference: PreferenceLevel = 'neutral'; // Default
-
-    const assignUnitValues = (): Record<ResourceType, number> => {
-      const unitValues: Record<ResourceType, number> = {} as Record<ResourceType, number>;
-
-      for (const resource of Object.keys(editablePointRanges) as ResourceType[]) {
-        const range = editablePointRanges[resource][traderPreference];
-        const [min, max] = range;
-        const randomValue = min + Math.random() * (max - min);
-        unitValues[resource] = parseFloat(randomValue.toFixed(2));
-      }
-
-      return unitValues;
-    };
-  
-
-  const generateTrade = (unitValues: Record<ResourceType, number>, forceAffordable = false): Trade | null => {
-
-    // Randomly choose different resource types for NPC's offer vs what they want
+    // Choose different give/want resources
     let give: ResourceType = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     let want: ResourceType = give;
     while (want === give) {
       want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     }
 
-    const giveUnitValue = unitValues[give];
-    const wantUnitValue = unitValues[want];
+    // Generate 1–2 likes and 1–2 dislikes, excluding 'give' and salt for dislikes
+    const available = resourcePool.filter(r => r !== give);
+    const likeCount = Math.floor(Math.random() * 2) + 1;
+    const dislikeCount = Math.floor(Math.random() * 2) + 1;
 
+    const likes: ResourceType[] = [];
+    const dislikes: ResourceType[] = [];
+
+    // Pick likes first
+    while (likes.length < likeCount && available.length) {
+      const pick = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+      likes.push(pick);
+    }
+
+    // For dislikes, exclude salt and already liked resources
+    const dislikable = resourcePool.filter(
+      r => r !== give && r !== 'salt' && !likes.includes(r)
+    );
+    while (dislikes.length < dislikeCount && dislikable.length) {
+      const pick = dislikable.splice(Math.floor(Math.random() * dislikable.length), 1)[0];
+      dislikes.push(pick);
+    }
+
+    // Assign unit values based on preferences
+    const unitValues = assignUnitValues(likes, dislikes, give);
+
+    // Compute trade amounts
     const [minGiveQty, maxGiveQty] = resourceQuantityRanges[give];
     const giveAmount = Math.floor(Math.random() * (maxGiveQty - minGiveQty + 1)) + minGiveQty;
-    const totalValue = giveAmount * giveUnitValue;
-    const wantAmount = Math.ceil(totalValue / wantUnitValue);
+    const totalValue = giveAmount * unitValues[give];
+    const wantAmount = Math.ceil(totalValue / unitValues[want]);
 
+    const tradeData: Trade = { give, giveAmount, want, wantAmount };
 
-
-    
-const tradeData: Trade = { give, giveAmount, want, wantAmount };
-setTrade(tradeData);
-(setTrade as any).debug = {
-  unitValues,
-  giveUnitValue,
-  wantUnitValue,
-  giveTotalValue: giveUnitValue * giveAmount,
-};
-return tradeData;
+    setTrade(tradeData);
+    setSelectedNpcIndex(index);
+    setTradePreferences({
+      likes,
+      dislikes,
+      unitValues,
+    });
   };
-
-  // generate all unit values once per trade, store for consistent fairness
-  const unitValues = assignUnitValues();
-
-  fairTradeCounter = (fairTradeCounter + 1) % 3;
-const newTrade = generateTrade(unitValues);
-  if (!newTrade) return;
-
-  setTrade(newTrade);
-  setSelectedNpcIndex(index);
-};
+  
 
 
 
@@ -290,20 +326,48 @@ if (playerTotal >= npcTotal) {
     }, 0);
   }, safeExitDelay);
   
-  // Return all offered resources to the player
-  setResources(prevResources => {
-    const updatedResources = { ...prevResources };
-    for (const [res, amount] of Object.entries(playerOffer)) {
-      if (!amount) continue;
-      updatedResources[res as ResourceType] = (updatedResources[res as ResourceType] || 0) + amount;
-    }
-    return updatedResources;
-  });
+  // return offered resources if player declined
+  if (option === 'decline') {
+    setResources(prevResources => {
+      const updatedResources = { ...prevResources };
+      for (const [res, amount] of Object.entries(playerOffer)) {
+        if (!amount) continue;
+        updatedResources[res as ResourceType] = (updatedResources[res as ResourceType] || 0) + amount;
+      }
+      return updatedResources;
+    });
+  }
+  
   
   setSelectedNpcIndex(null);
   setTrade(null);
   setPlayerOffer({});
+  // Hide world event early if active
+  if (showWorldEvent) {
+    if (worldEventTimerRef.current) {
+      clearTimeout(worldEventTimerRef.current);
+      worldEventTimerRef.current = null;
+    }
+    Animated.timing(worldEventOpacity, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowWorldEvent(false);
+    });
+  }
 
+  // Count completed trades toward world events
+  setAcceptedTradeCount(prev => {
+    const newCount = prev + 1;
+    if (newCount >= 3) {
+      triggerWorldEvent();
+      return 0;
+    }
+    return newCount;
+  });
+  
+  
 };
 
 
@@ -366,7 +430,82 @@ const renderResourceSection = () => (
     });
   };
 
+  const triggerWorldEvent = () => {
 
+    //fade in event
+    setShowWorldEvent(true);
+    worldEventOpacity.setValue(0);
+    Animated.timing(worldEventOpacity, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+
+    const events = [
+      () => {
+        const currentApples = resources.apples || 0;
+        if (currentApples > 0) {
+          const spoilCount = Math.floor(Math.random() * (currentApples / 2)) + 1;
+          setResources(prev => ({
+            ...prev,
+            apples: Math.max(0, prev.apples - spoilCount),
+          }));
+          setWorldEventText(`${spoilCount} of your apples have spoiled`);
+        } else {
+          setWorldEventText('Some nearby apples have spoiled');
+        }
+      },
+      () => {
+        editablePointRanges.shells.favored = [
+          editablePointRanges.shells.favored[0] * 0.75,
+          editablePointRanges.shells.favored[1] * 0.75,
+        ];
+        editablePointRanges.shells.neutral = [
+          editablePointRanges.shells.neutral[0] * 0.75,
+          editablePointRanges.shells.neutral[1] * 0.75,
+        ];
+        editablePointRanges.shells.disliked = [
+          editablePointRanges.shells.disliked[0] * 0.75,
+          editablePointRanges.shells.disliked[1] * 0.75,
+        ];
+        setWorldEventText('Storm washes up seashells, prices go down');
+      },
+      () => {
+        const currentPottery = resources.pottery || 0;
+        if (currentPottery > 0) {
+          setResources(prev => ({
+            ...prev,
+            pottery: Math.max(0, prev.pottery - 1),
+          }));
+          setWorldEventText('An earthquake knocks over your pottery');
+        } else {
+          setWorldEventText('An earthquake knocks over pottery in nearby stores');
+        }
+      },
+    ];
+
+    const randomEvent = events[Math.floor(Math.random() * events.length)];
+    randomEvent();
+
+    // Start timeout to auto-hide after 6 seconds
+    if (worldEventTimerRef.current) {
+      clearTimeout(worldEventTimerRef.current);
+    }
+    worldEventTimerRef.current = setTimeout(() => {
+
+      Animated.timing(worldEventOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowWorldEvent(false);
+        worldEventTimerRef.current = null;
+      });
+
+    }, 6000);
+  };
+  
+  
 
 
 
@@ -385,16 +524,21 @@ const renderResourceSection = () => (
         }}
         pointerEvents="box-none"
       >
-        <TradeModal
-          trade={trade}
-          playerOffer={playerOffer}
-          unitValues={unitValues}
-          onAccept={() => handleOptionSelect('buy')}
-          onDecline={() => handleOptionSelect('decline')}
-          onRemoveItem={handleRemoveFromOffer}
-        />
+        {trade && tradePreferences && (
+          <TradeModal
+            trade={trade}
+            playerOffer={playerOffer}
+            unitValues={tradePreferences.unitValues}
+            onAccept={() => handleOptionSelect('buy')}
+            onDecline={() => handleOptionSelect('decline')}
+            onRemoveItem={handleRemoveFromOffer}
+            likes={tradePreferences.likes}
+            dislikes={tradePreferences.dislikes}
+          />
+        )}
       </View>
     );
+    
     
   };
   
@@ -406,9 +550,19 @@ const renderResourceSection = () => (
 return (
   <View style={styles.containerWrapper}>
     {/* Top Tab */}
-    <View style={[styles.topTab, { width: Math.min(width, MAX_PHONE_WIDTH) }]}>
-      <Text style={styles.topTabText}>Sample Text</Text>
-    </View>
+    {showWorldEvent && (
+      <Animated.View
+        style={[
+          styles.topTab,
+          {
+            width: Math.min(width, MAX_PHONE_WIDTH),
+            opacity: worldEventOpacity,
+          },
+        ]}
+      >
+        <Text style={styles.topTabText}>{worldEventText}</Text>
+      </Animated.View>
+    )}
 
     {/* Main Game Scene */}
     <View

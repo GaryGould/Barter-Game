@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'visible',
     position: 'relative',
-    marginTop: -100,
+    marginTop: -20,
   },
   beam: {
     width: BEAM_WIDTH,
