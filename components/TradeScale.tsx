@@ -71,9 +71,9 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
     const topRow = flatItems.slice(3, 5);
 
     return (
-      <View style={styles.stackWrapper} pointerEvents="box-none">
+      <View style={styles.stackWrapper}>
         {topRow.length > 0 && (
-          <View style={[styles.itemRow, styles.topRow]}>
+          <View style={styles.topRow}>
             {topRow.map(([res, count], index) => (
               <TouchableOpacity
                 key={`top-${res}-${index}`}
@@ -88,7 +88,7 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
             ))}
           </View>
         )}
-        <View style={[styles.itemRow, styles.bottomRow]}>
+        <View style={styles.bottomRow}>
           {bottomRow.map(([res, count], index) => (
             <TouchableOpacity
               key={`bottom-${res}-${index}`}
@@ -105,6 +105,7 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
       </View>
     );
   };
+  
   
   
   
@@ -134,6 +135,7 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
         resizeMode="contain"
       />
       <Animated.View
+        pointerEvents="box-none"
         style={{
           position: 'absolute',
           transform: [
@@ -141,8 +143,12 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
             { translateY: leftTip.y + PAN_HEIGHT * 0.15 },
           ],
           alignItems: 'center',
+          width: PAN_WIDTH,
         }}
       >
+
+
+      
         {renderItems(playerOffer, onRemoveItem)}
       </Animated.View>
 
@@ -205,7 +211,7 @@ const styles = StyleSheet.create({
   itemIcon: {
     width: 60,
     height: 60,
-    margin: 1,
+    margin: -10,
   },
 
   countCircle: {
@@ -233,27 +239,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-stackWrapper: {
-  flexDirection: 'column-reverse', // this makes bottom row stay fixed
-  justifyContent: 'flex-start',
-  alignItems: 'center',
-  gap: 6, // space between rows (responsive)
-},
-
-
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    position: 'absolute',
+  stackWrapper: {
+    position: 'relative',
     width: '100%',
+    height: 140, // must be enough to contain both rows
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
 
   bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    position: 'absolute',
     bottom: 0,
+    width: '100%',
   },
 
   topRow: {
-    bottom: 70, // adjust as needed to stack above bottom row cleanly
+    flexDirection: 'row',
+    justifyContent: 'center',
+    position: 'absolute',
+    bottom: 40, // sits above bottom row without overlap
+    width: '100%',
   },
+  
+
   
 });

@@ -250,7 +250,7 @@ if (playerTotal >= npcTotal) {
       });
     }, 0);
   }, safeExitDelay);
-
+  
   // Return all offered resources to the player
   setResources(prevResources => {
     const updatedResources = { ...prevResources };
@@ -310,18 +310,23 @@ const renderResourceSection = () => (
   </View>
 );
   const handleRemoveFromOffer = (res: ResourceType) => {
-    // Only remove if there’s something to remove
-    if ((playerOffer[res] || 0) > 0) {
-      setPlayerOffer(prev => ({
-        ...prev,
-        [res]: prev[res]! - 1,
+    setPlayerOffer(prevOffer => {
+      const currentCount = prevOffer[res] || 0;
+      if (currentCount <= 0) return prevOffer;
+
+      const newOffer = { ...prevOffer };
+      newOffer[res] = currentCount - 1;
+      if (newOffer[res] === 0) delete newOffer[res];
+
+      setResources(prevResources => ({
+        ...prevResources,
+        [res]: (prevResources[res] || 0) + 1,
       }));
-      setResources(prev => ({
-        ...prev,
-        [res]: prev[res]! + 1,
-      }));
-    }
+
+      return newOffer;
+    });
   };
+
 
 
 
@@ -353,7 +358,7 @@ const renderOverlay = () => {
       <View
         style={{
           backgroundColor: 'white',
-          padding: 150,
+          padding: 2,
           borderRadius: 12,
           alignItems: 'center',
           width: VIRTUAL_WIDTH,
@@ -361,11 +366,12 @@ const renderOverlay = () => {
         pointerEvents="auto"
       >
       {/* Scale Visualization */}
-      <TradeScale
-        playerOffer={playerOffer}
-        npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
-        unitValues={unitValues}
-      />
+        <TradeScale
+          playerOffer={playerOffer}
+          npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
+          unitValues={unitValues}
+          onRemoveItem={handleRemoveFromOffer}
+        />
 
       {/* Debug value display */}
       <View style={{ position: 'absolute', left: -300, top: 0 }}>
