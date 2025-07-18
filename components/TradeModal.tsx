@@ -4,6 +4,7 @@ import { TradeScale } from './TradeScale';
 import { VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../normalize';
 import { ResourceType } from '../App';
 import { ResourceDisplay } from './ResourceDisplay';
+import { Image } from 'react-native';
 
 type Trade = {
     give: ResourceType;
@@ -58,9 +59,7 @@ export const TradeModal = ({
     
 
     return (
-        
         <View style={styles.container} pointerEvents="auto">
-
             {/* Likes and Dislikes */}
             <View style={styles.preferencesRow}>
                 <View style={styles.preferenceRowItem}>
@@ -82,18 +81,27 @@ export const TradeModal = ({
                 </View>
             </View>
 
-            {/* Accept / Decline Buttons */}
+            {/* Accept / Decline Buttons with checkmark */}
             <View style={styles.buttonRow}>
                 <TouchableOpacity
-                    style={[
-                        styles.fullButtonWrapper,
-                        !hasEnough && styles.disabledButton,
-                    ]}
+                    style={[styles.fullButtonWrapper, !hasEnough && styles.disabledButton]}
                     onPress={onAccept}
                     disabled={!hasEnough}
                 >
                     <Text style={styles.buttonText}>Accept</Text>
                 </TouchableOpacity>
+                <View pointerEvents="none">
+                    <Image
+                        source={require('../assets/Icons/checkmark.png')}
+                        style={[
+                            styles.checkmarkIcon,
+                            { opacity: hasEnough ? 1 : 0 },
+                        ]}
+                    />
+                </View>
+
+
+
                 <TouchableOpacity
                     style={styles.fullButtonWrapper}
                     onPress={onDecline}
@@ -109,6 +117,8 @@ export const TradeModal = ({
                 unitValues={unitValues}
                 onRemoveItem={onRemoveItem}
             />
+
+            {/* Debug Values */}
             {trade && (
                 <View
                     style={{
@@ -131,13 +141,10 @@ export const TradeModal = ({
                     </Text>
                 </View>
             )}
-
         </View>
-        
-        
     );
-
-};
+      
+};      
 
 const styles = StyleSheet.create({
     container: {
@@ -209,7 +216,12 @@ const styles = StyleSheet.create({
         paddingVertical: 5,
         paddingHorizontal: 10,
         borderRadius: 12,
-        marginHorizontal: 20,
+        marginHorizontal: 15,
     },
-    
+    checkmarkIcon: {
+        width: 36,
+        height: 28,
+        alignSelf: 'center',
+        marginHorizontal: 3,
+      },
 });
