@@ -11,7 +11,7 @@ export const MAX_PHONE_WIDTH = 460;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Clamp width if screen is extremely wide (desktop/tablet)
-const CLAMPED_WIDTH = Math.min(SCREEN_WIDTH, MAX_PHONE_WIDTH);
+export const CLAMPED_WIDTH = Math.min(SCREEN_WIDTH, MAX_PHONE_WIDTH);
 
 // Scene scale based on clamped width
 export const SCENE_SCALE = CLAMPED_WIDTH / VIRTUAL_WIDTH;

@@ -251,6 +251,16 @@ if (playerTotal >= npcTotal) {
     }, 0);
   }, safeExitDelay);
 
+  // Return all offered resources to the player
+  setResources(prevResources => {
+    const updatedResources = { ...prevResources };
+    for (const [res, amount] of Object.entries(playerOffer)) {
+      if (!amount) continue;
+      updatedResources[res as ResourceType] = (updatedResources[res as ResourceType] || 0) + amount;
+    }
+    return updatedResources;
+  });
+  
   setSelectedNpcIndex(null);
   setTrade(null);
   setPlayerOffer({});
@@ -299,6 +309,19 @@ const renderResourceSection = () => (
     ))}
   </View>
 );
+  const handleRemoveFromOffer = (res: ResourceType) => {
+    // Only remove if there’s something to remove
+    if ((playerOffer[res] || 0) > 0) {
+      setPlayerOffer(prev => ({
+        ...prev,
+        [res]: prev[res]! - 1,
+      }));
+      setResources(prev => ({
+        ...prev,
+        [res]: prev[res]! + 1,
+      }));
+    }
+  };
 
 
 
@@ -326,14 +349,14 @@ const renderOverlay = () => {
       }}
       pointerEvents="box-none"
     >
+      {/* trade window */}
       <View
         style={{
           backgroundColor: 'white',
-          padding: 20,
+          padding: 150,
           borderRadius: 12,
           alignItems: 'center',
-          maxWidth: 320,
-          width: '100%',
+          width: VIRTUAL_WIDTH,
         }}
         pointerEvents="auto"
       >
