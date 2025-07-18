@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { CLAMPED_WIDTH } from '../normalize';
 import { ResourceType } from '../App';
+import { resourceIcons } from '../resourceRegistry';
 
 const beamImage = require('../assets/Scale/scaleBeam.png');
 const panImage = require('../assets/Scale/scalePan.png');
@@ -18,13 +19,6 @@ const PAN_HEIGHT = PAN_WIDTH / PAN_ASPECT;
 // Pan spacing from beam pivot
 const PAN_HANGING_SPAN = BEAM_WIDTH * 0.8;
 
-const resourceIcons: Record<ResourceType, any> = {
-  salt: require('../assets/Icons/Salt.png'),
-  apples: require('../assets/Icons/apple.png'),
-  tools: require('../assets/Icons/Tools.png'),
-  pottery: require('../assets/Icons/pottery.png'),
-  shells: require('../assets/Icons/shell.png'),
-};
 
 type TradeScaleProps = {
   playerOffer: Partial<Record<ResourceType, number>>;

@@ -1,13 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
+import { ResourceType } from '../App';
 
-type ResourceDisplayProps = {
-  name: string;
-  amount: number;
-};
-
-// Local registry to map resource names to their images
-const resourceIcons: Record<string, any> = {
+const resourceIcons: Record<ResourceType, any> = {
   salt: require('../assets/Icons/Salt.png'),
   apples: require('../assets/Icons/apple.png'),
   tools: require('../assets/Icons/Tools.png'),
@@ -15,49 +10,68 @@ const resourceIcons: Record<string, any> = {
   shells: require('../assets/Icons/shell.png'),
 };
 
+type ResourceDisplayProps = {
+  name: ResourceType;
+  amount: number;
+};
+
+// Visual display of one resource: icon, count badge, and label
 export const ResourceDisplay = ({ name, amount }: ResourceDisplayProps) => {
-  const icon = resourceIcons[name.toLowerCase()];
+  const icon = resourceIcons[name];
 
   return (
-    <View style={styles.container}>
-      {icon && (
-        <Image
-          source={icon}
-          style={styles.icon}
-          resizeMode="contain"
-        />
-      )}
-      <View style={styles.amountBox}>
-        <Text style={styles.amountText}>{amount}</Text>
+    <View style={styles.itemWrapper}>
+      {/* Icon with floating count badge */}
+      <View style={styles.iconContainer}>
+        <View style={styles.amountBadge}>
+          <Text style={styles.amountText}>{amount}</Text>
+        </View>
+        <Image source={icon} style={styles.icon} resizeMode="contain" />
       </View>
-      <Text style={styles.label}>{name}</Text>
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  itemWrapper: {
     alignItems: 'center',
-    margin: 8,
+    marginHorizontal: 8,
+    marginVertical: 6,
   },
-  icon: {
-    width: 24,
-    height: 24,
-    marginBottom: 4,
-  },
-  amountBox: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'white',
-    borderRadius: 4,
+  iconContainer: {
+    width: 60,
+    height: 60,
+    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  amountBadge: {
+    position: 'absolute',
+    top: 4,
+    right: -4,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    shadowRadius: 1,
+  },
   amountText: {
+    fontSize: 12,
     fontWeight: 'bold',
+    color: 'black',
+  },
+  icon: {
+    width: 72,
+    height: 72,
   },
   label: {
+    fontSize: 12,
     marginTop: 4,
-    color: 'white',
+    color: 'black',
+    textAlign: 'center',
   },
 });

@@ -8,7 +8,9 @@ import {
   StyleSheet,
   Image
 } from 'react-native';
-import { styles } from './styles';
+
+//styles
+import { styles } from './styles/styles';
 import {
   SCENE_SCALE,
   TOTAL_SCENE_WIDTH,
@@ -29,6 +31,7 @@ let fairTradeCounter = 0;
 import { TradeScale } from './components/TradeScale';
 import { NPCSlot } from './components/NPCSlot';
 import { ResourceDisplay } from './components/ResourceDisplay';
+import { TradeModal } from './components/TradeModal';
 
 type Direction = 'left' | 'right';
 
@@ -56,13 +59,43 @@ const resourceIcons: Record<ResourceType, any> = {
   shells: require('./assets/Icons/shell.png'),
 };
 
+//modify values when traders prefer a certain good
+type PreferenceLevel = 'favored' | 'neutral' | 'disliked';
+
+type ResourcePointRanges = {
+  favored: [number, number];
+  neutral: [number, number];
+  disliked: [number, number];
+};
+
 // Each resource has a hidden point value range used during trade generation
-const resourcePointRanges: Record<ResourceType, [number, number]> = {
-  salt: [1, 1],
-  apples: [3, 6],
-  shells: [8, 12],
-  pottery: [9, 15],
-  tools: [20, 25],
+// Editable point ranges based on trader preferences
+const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
+  salt: {
+    favored: [1.5, 2],
+    neutral: [1, 1],
+    disliked: [0.5, 0.8],
+  },
+  apples: {
+    favored: [6, 8],
+    neutral: [3, 6],
+    disliked: [2, 4],
+  },
+  shells: {
+    favored: [12, 15],
+    neutral: [8, 12],
+    disliked: [6, 10],
+  },
+  pottery: {
+    favored: [15, 20],
+    neutral: [9, 15],
+    disliked: [7, 12],
+  },
+  tools: {
+    favored: [25, 30],
+    neutral: [20, 25],
+    disliked: [15, 20],
+  },
 };
 
 // Used to determine how many units of each resource can appear in trade generation
@@ -124,15 +157,21 @@ export default function App() {
   const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
   // When a trade starts, each resource is assigned a fixed value that lasts the whole trade
-  const assignUnitValues = (): Record<ResourceType, number> => {
-    const unitValues: Record<ResourceType, number> = {} as Record<ResourceType, number>;
-    resourcePool.forEach(resource => {
-      const [min, max] = resourcePointRanges[resource];
-      const randomValue = min + Math.random() * (max - min);
-      unitValues[resource] = parseFloat(randomValue.toFixed(2));
-    });
-    return unitValues;
-  };
+    const traderPreference: PreferenceLevel = 'neutral'; // Default
+
+    const assignUnitValues = (): Record<ResourceType, number> => {
+      const unitValues: Record<ResourceType, number> = {} as Record<ResourceType, number>;
+
+      for (const resource of Object.keys(editablePointRanges) as ResourceType[]) {
+        const range = editablePointRanges[resource][traderPreference];
+        const [min, max] = range;
+        const randomValue = min + Math.random() * (max - min);
+        unitValues[resource] = parseFloat(randomValue.toFixed(2));
+      }
+
+      return unitValues;
+    };
+  
 
   const generateTrade = (unitValues: Record<ResourceType, number>, forceAffordable = false): Trade | null => {
 
@@ -331,82 +370,34 @@ const renderResourceSection = () => (
 
 
 
-const renderOverlay = () => {
-  if (!trade) return null;
+  const renderOverlay = () => {
+    if (!trade) return null;
 
-  const unitValues = (setTrade as any).debug?.unitValues || {};
-  const npcValue = (unitValues[trade.give] || 0) * trade.giveAmount;
+    const unitValues = (setTrade as any).debug?.unitValues || {};
 
-  const playerTotal = Object.entries(playerOffer).reduce((sum, [res, qty]) => {
-    return sum + (unitValues[res as ResourceType] || 0) * (qty || 0);
-  }, 0);
-
-  const hasEnough = playerTotal >= npcValue;
-
-  return (
-    <View
-      style={{
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-      }}
-      pointerEvents="box-none"
-    >
-      {/* trade window */}
+    return (
       <View
         style={{
-          backgroundColor: 'white',
-          padding: 2,
-          borderRadius: 12,
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
           alignItems: 'center',
-          width: VIRTUAL_WIDTH,
         }}
-        pointerEvents="auto"
+        pointerEvents="box-none"
       >
-      {/* Scale Visualization */}
-        <TradeScale
+        <TradeModal
+          trade={trade}
           playerOffer={playerOffer}
-          npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
           unitValues={unitValues}
+          onAccept={() => handleOptionSelect('buy')}
+          onDecline={() => handleOptionSelect('decline')}
           onRemoveItem={handleRemoveFromOffer}
         />
-
-      {/* Debug value display */}
-      <View style={{ position: 'absolute', left: -300, top: 0 }}>
-        <Text style={{ fontSize: 16 }}>
-          (Debug) Trader's Offer: {npcValue.toFixed(2)} pts
-        </Text>
-        <Text style={{ fontSize: 16 }}>
-          (Debug) Your Offer: {playerTotal.toFixed(2)} pts
-        </Text>
       </View>
-
-
-
-
-        {/* Accept Trade(if player has offered enough) / Decline (return items)*/}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 16 }}>
-          <TouchableOpacity
-            style={[styles.button, { opacity: hasEnough ? 1 : 0.5 }]}
-            onPress={() => hasEnough && handleOptionSelect('buy')}
-            disabled={!hasEnough}
-          >
-            <Text style={styles.buttonText}>Accept</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleOptionSelect('decline')}
-          >
-            <Text style={styles.buttonText}>Decline</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-};
+    );
+    
+  };
+  
 
 
 
