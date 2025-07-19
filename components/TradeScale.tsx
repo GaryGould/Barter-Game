@@ -99,11 +99,11 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
       </View>
     );
   };
-  
-  
-  
-  
-  
+
+
+
+
+
 
   return (
     <View style={styles.root}>
@@ -142,7 +142,7 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
       >
 
 
-      
+
         {renderItems(playerOffer, onRemoveItem)}
       </Animated.View>
 
@@ -220,14 +220,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
 
   countCircleText: {
     color: 'black',
     fontWeight: 'bold',
     fontSize: 12,
   },
-  
+
   countText: {
     color: '#fff',
     fontSize: 12,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     bottom: 40, // sits above bottom row without overlap
     width: '100%',
   },
-  
 
-  
+
+
 });
