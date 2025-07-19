@@ -463,58 +463,54 @@ const renderNpcRow = () => (
 );
 
 // Render the player's resource inventory with tap-to-offer logic
-const renderResourceSection = () => (
-  <View style={styles.resourceSection}>
-    {([['salt', 'apples'], ['tools', 'pottery', 'shells']] as ResourceType[][]).map((row, i) => (
-      <View key={i} style={styles.resourceRow}>
-        {row.map((res: ResourceType) => {
-          const isDisabled = !trade || resources[res] <= 0;
-          return (
-            <TouchableOpacity
-              key={res}
-              disabled={isDisabled}
-              onPress={() => {
-                if (isDisabled) return;
+  const renderResourceSection = () => (
+    <View style={styles.resourceSection}>
+      {([['salt', 'apples'], ['tools', 'pottery', 'shells']] as ResourceType[][]).map((row, i) => (
+        <View key={i} style={styles.resourceRow}>
+          {row.map((res: ResourceType) => {
+            const isDisabled = !trade || resources[res] <= 0;
+            return (
+              <TouchableOpacity
+                key={res}
+                disabled={isDisabled}
+                onPress={() => {
+                  if (isDisabled) return;
 
-                // Measure the position of the tapped resource icon
-                inventoryRefs.current[res]?.measure((x, y, width, height, pageX, pageY) => {
-                  if (!leftPanPosition) return;
+                  inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
+                    if (!leftPanPosition) return;
 
-                  const start = { x: pageX, y: pageY };
-                  const destination = { x: leftPanPosition.x, y: leftPanPosition.y };
-                  
+                    const start = { x: x + width / 2, y: y + height / 2 };
+                    const destination = leftPanPosition;
 
-                  flyingRef.current?.fly(res, start, destination);
+                    flyingRef.current?.fly(res, start, destination);
 
-                  setTimeout(() => {
-                    setResources(prev => ({
-                      ...prev,
-                      [res]: prev[res] - 1,
-                    }));
-                    setPlayerOffer(prev => ({
-                      ...prev,
-                      [res]: (prev[res] || 0) + 1,
-                    }));
-                  }, 400);
-                });
-                
-              }}
-            >
-              <View
-                ref={(ref) => {
-                  if (ref) inventoryRefs.current[res] = ref;
+                    setTimeout(() => {
+                      setResources(prev => ({ ...prev, [res]: prev[res] - 1 }));
+                      setPlayerOffer(prev => ({
+                        ...prev,
+                        [res]: (prev[res] || 0) + 1,
+                      }));
+                    }, 400);
+                  });
                 }}
               >
-                <ResourceDisplay name={res} amount={resources[res]} />
-              </View>
-            </TouchableOpacity>
+                <View
+                  ref={(ref) => {
+                    if (ref) inventoryRefs.current[res] = ref;
+                  }}
+                  collapsable={false}
+                  style={{ alignItems: 'center' }} // Add this so the wrapper has layout
+                >
+                  <ResourceDisplay name={res} amount={resources[res]} />
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
 
-          );
-        })}
-      </View>
-    ))}
-  </View>
-);
   const handleRemoveFromOffer = (res: ResourceType) => {
     setPlayerOffer(prevOffer => {
       const currentCount = prevOffer[res] || 0;
