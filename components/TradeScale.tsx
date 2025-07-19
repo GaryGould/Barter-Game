@@ -4,6 +4,8 @@ import { CLAMPED_WIDTH } from '../normalize';
 import { ResourceType } from '../App';
 import { resourceIcons } from '../resourceRegistry';
 
+
+// The size and layout of the scale and pans
 const beamImage = require('../assets/Scale/scaleBeam.png');
 const panImage = require('../assets/Scale/scalePan.png');
 
@@ -16,45 +18,72 @@ const PAN_WIDTH = BEAM_WIDTH * 0.42;
 const PAN_ASPECT = 2;
 const PAN_HEIGHT = PAN_WIDTH / PAN_ASPECT;
 
-// Pan spacing from beam pivot
+// How far the pans hang from the pivot point
 const PAN_HANGING_SPAN = BEAM_WIDTH * 0.8;
+
+//
+// --- PROPS TYPE ---
+//
 
 type TradeScaleProps = {
   playerOffer: Partial<Record<ResourceType, number>>;
   npcOffer: { resource: ResourceType; amount: number };
   unitValues: Record<ResourceType, number>;
   onRemoveItem?: (res: ResourceType) => void;
-
-  onLeftPanMeasured?: (pos: { x: number; y: number }) => void; //
-
+  onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
 };
 
-export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, onLeftPanMeasured }: TradeScaleProps) => {
+//
+// --- MAIN COMPONENT ---
+//
+
+export const TradeScale = ({
+  playerOffer,
+  npcOffer,
+  unitValues,
+  onRemoveItem,
+  onLeftPanMeasured
+}: TradeScaleProps) => {
+
+  //
+  // ---- TRADE BALANCE LOGIC ----
+  //
+
   const playerTotal = Object.entries(playerOffer).reduce((sum, [res, qty]) => {
     return sum + (unitValues[res as ResourceType] || 0) * (qty || 0);
   }, 0);
 
   const npcTotal = (unitValues[npcOffer.resource] || 0) * npcOffer.amount;
+
+  // Convert imbalance into a -1 to 1 ratio
   const imbalance = Math.max(-1, Math.min(1, (npcTotal - playerTotal) / npcTotal));
+
+  // How far the beam tilts (degrees)
   const rotation = imbalance * 15;
+
+  //
+  // ---- PAN POSITIONING ----
+  //
 
   const leftPanRef = React.useRef<View>(null);
 
-  // Measure once after layout
+  // After render, measure the left pan's screen position
   React.useEffect(() => {
     if (!leftPanRef.current || !onLeftPanMeasured) return;
 
-    leftPanRef.current.measure((x, y, width, height, pageX, pageY) => {
+    leftPanRef.current.measureInWindow((x, y, width, height) => {
       onLeftPanMeasured({
-        x: pageX + width / 2,
-        y: pageY + height / 2,
+        x: x + width / 2,
+        y: y + height / 2,
       });
     });
+    
   }, [playerOffer, onLeftPanMeasured]);
 
-
-  // Beam pivot (middle Y of beam image)
+  // The beam rotates around this pivot Y
   const pivotY = BEAM_TOP + BEAM_HEIGHT / 2;
+
+  // Convert rotation into pan hanging positions
   const angleRad = (rotation * Math.PI) / 180;
   const offsetX = (PAN_HANGING_SPAN / 2) * Math.cos(angleRad);
   const offsetY = (PAN_HANGING_SPAN / 2) * Math.sin(angleRad);
@@ -69,6 +98,11 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, on
     y: pivotY + offsetY,
   };
 
+  //
+  // ---- ITEM STACK RENDERING ----
+  // This displays the icons in two rows inside a pan
+  //
+
   const renderItems = (
     items: Partial<Record<ResourceType, number>>,
     onRemoveItem?: (res: ResourceType) => void
@@ -77,8 +111,8 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, on
       .filter(([_, count]) => (count || 0) > 0)
       .map(([res, count]) => [res as ResourceType, count as number]);
 
-    const bottomRow = flatItems.slice(0, 3);
-    const topRow = flatItems.slice(3, 5);
+    const bottomRow = flatItems.slice(0, 3); // first 3
+    const topRow = flatItems.slice(3, 5);    // next 2 (if any)
 
     return (
       <View style={styles.stackWrapper}>
@@ -98,6 +132,7 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, on
             ))}
           </View>
         )}
+
         <View style={styles.bottomRow}>
           {bottomRow.map(([res, count], index) => (
             <TouchableOpacity
@@ -116,37 +151,31 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, on
     );
   };
 
-
-
-
-
+  //
+  // ---- RENDER FINAL SCALE ----
+  //
 
   return (
     <View style={styles.root}>
-      {/* Beam */}
+
+      {/* The beam image tilts based on value difference */}
       <Animated.Image
         source={beamImage}
         style={[styles.beam, { transform: [{ rotate: `${rotation}deg` }] }]}
         resizeMode="contain"
       />
 
-      {/* Left Pan */}
+      {/* Left pan image */}
       <Animated.Image
         source={panImage}
-        style={[
-          styles.pan,
-          {
-            transform: [
-              { translateX: leftTip.x },
-              { translateY: leftTip.y },
-            ],
-          },
-        ]}
+        style={[styles.pan, { transform: [{ translateX: leftTip.x }, { translateY: leftTip.y }] }]}
         resizeMode="contain"
       />
+
+      {/* Player's offered items rendered inside left pan */}
       <View
         ref={leftPanRef}
-        collapsable={false} // required for measure() to work on Android
+        collapsable={false}
         style={{
           position: 'absolute',
           transform: [
@@ -162,21 +191,14 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, on
         </Animated.View>
       </View>
 
-
-      {/* Right Pan */}
+      {/* Right pan image */}
       <Animated.Image
         source={panImage}
-        style={[
-          styles.pan,
-          {
-            transform: [
-              { translateX: rightTip.x },
-              { translateY: rightTip.y },
-            ],
-          },
-        ]}
+        style={[styles.pan, { transform: [{ translateX: rightTip.x }, { translateY: rightTip.y }] }]}
         resizeMode="contain"
       />
+
+      {/* NPC's offered item in right pan */}
       <Animated.View
         style={{
           position: 'absolute',
@@ -192,6 +214,10 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, on
     </View>
   );
 };
+
+//
+// --- STYLES ---
+//
 
 const styles = StyleSheet.create({
   root: {
@@ -224,7 +250,6 @@ const styles = StyleSheet.create({
     height: 60,
     margin: -10,
   },
-
   countCircle: {
     position: 'absolute',
     top: '50%',
@@ -237,14 +262,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-
   countCircleText: {
     color: 'black',
     fontWeight: 'bold',
     fontSize: 12,
   },
-
   countText: {
     color: '#fff',
     fontSize: 12,
@@ -253,11 +275,10 @@ const styles = StyleSheet.create({
   stackWrapper: {
     position: 'relative',
     width: '100%',
-    height: 140, // must be enough to contain both rows
+    height: 140, // enough to hold both rows
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-
   bottomRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -265,7 +286,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
   },
-
   topRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -273,7 +293,4 @@ const styles = StyleSheet.create({
     bottom: 40, // sits above bottom row without overlap
     width: '100%',
   },
-
-
-
 });

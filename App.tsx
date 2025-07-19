@@ -480,13 +480,9 @@ const renderResourceSection = () => (
                 inventoryRefs.current[res]?.measure((x, y, width, height, pageX, pageY) => {
                   if (!leftPanPosition) return;
 
-                  const sceneOffsetX = (width - TOTAL_SCENE_WIDTH) / 2;
-
-                  const start = { x: pageX - sceneOffsetX, y: pageY };
-                  const destination = {
-                    x: leftPanPosition.x - sceneOffsetX,
-                    y: leftPanPosition.y,
-                  };
+                  const start = { x: pageX, y: pageY };
+                  const destination = { x: leftPanPosition.x, y: leftPanPosition.y };
+                  
 
                   flyingRef.current?.fly(res, start, destination);
 
