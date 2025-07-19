@@ -29,6 +29,8 @@ const wallLeftPos = 0 - wallWidth;
 const wallRightPos = 0 - wallWidth;
 
 
+import { FlyingResourceManager, FlyingResourceManagerHandle } from './components/FlyingResourceManager';
+
 
 //import components
 import { TradeScale } from './components/TradeScale';
@@ -126,6 +128,9 @@ export default function App() {
   const specialNpcAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const worldEventOpacity = useRef(new Animated.Value(0)).current;
 
+  //flying item animation
+  const flyingRef = useRef<FlyingResourceManagerHandle>(null);
+
 
   //special npc animation
   const specialNpcAnimX = useRef(new Animated.Value(0)).current;
@@ -139,6 +144,15 @@ export default function App() {
   const specialNpcCurrentX = useRef(0);
   const { width, height } = useWindowDimensions();
 
+//flying item refs
+  const inventoryRefs = useRef<Record<ResourceType, View | null>>({
+    salt: null,
+    apples: null,
+    tools: null,
+    pottery: null,
+    shells: null,
+  });
+  
   const [resources, setResources] = useState<Record<ResourceType, number>>({
     salt: 10,
     apples: 5,
@@ -146,6 +160,7 @@ export default function App() {
     pottery: 2,
     shells: 5,
   });
+  const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
 
   function assignUnitValues(
     likes: ResourceType[],
@@ -460,20 +475,44 @@ const renderResourceSection = () => (
               disabled={isDisabled}
               onPress={() => {
                 if (isDisabled) return;
-                // Remove from player inventory
-                setResources(prev => ({
-                  ...prev,
-                  [res]: prev[res] - 1,
-                }));
-                // Add to offer
-                setPlayerOffer(prev => ({
-                  ...prev,
-                  [res]: (prev[res] || 0) + 1,
-                }));
+
+                // Measure the position of the tapped resource icon
+                inventoryRefs.current[res]?.measure((x, y, width, height, pageX, pageY) => {
+                  if (!leftPanPosition) return;
+
+                  const sceneOffsetX = (width - TOTAL_SCENE_WIDTH) / 2;
+
+                  const start = { x: pageX - sceneOffsetX, y: pageY };
+                  const destination = {
+                    x: leftPanPosition.x - sceneOffsetX,
+                    y: leftPanPosition.y,
+                  };
+
+                  flyingRef.current?.fly(res, start, destination);
+
+                  setTimeout(() => {
+                    setResources(prev => ({
+                      ...prev,
+                      [res]: prev[res] - 1,
+                    }));
+                    setPlayerOffer(prev => ({
+                      ...prev,
+                      [res]: (prev[res] || 0) + 1,
+                    }));
+                  }, 400);
+                });
+                
               }}
             >
-              <ResourceDisplay name={res} amount={resources[res]} />
+              <View
+                ref={(ref) => {
+                  if (ref) inventoryRefs.current[res] = ref;
+                }}
+              >
+                <ResourceDisplay name={res} amount={resources[res]} />
+              </View>
             </TouchableOpacity>
+
           );
         })}
       </View>
@@ -660,6 +699,7 @@ const renderResourceSection = () => (
             onRemoveItem={handleRemoveFromOffer}
             likes={tradePreferences.likes}
             dislikes={tradePreferences.dislikes}
+            onLeftPanMeasured={setLeftPanPosition}
           />
         )}
       </View>
@@ -676,6 +716,8 @@ const renderResourceSection = () => (
 return (
   
   <View style={styles.containerWrapper}>
+    <FlyingResourceManager ref={flyingRef} />
+
     {/* Top Tab */}
     {showWorldEvent && (
       <Animated.View

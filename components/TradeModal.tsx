@@ -22,6 +22,7 @@ type Props = {
     onRemoveItem: (resource: ResourceType) => void;
     likes: ResourceType[];
     dislikes: ResourceType[];
+    onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
 };
 
 export const TradeModal = ({
@@ -33,6 +34,7 @@ export const TradeModal = ({
     onRemoveItem,
     likes,
     dislikes,
+    onLeftPanMeasured,
 }: Props) => {
     const npcValue = (unitValues[trade.give] || 0) * trade.giveAmount;
     const playerTotal = Object.entries(playerOffer).reduce((sum, [res, qty]) => {
@@ -116,6 +118,7 @@ export const TradeModal = ({
                 npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
                 unitValues={unitValues}
                 onRemoveItem={onRemoveItem}
+                onLeftPanMeasured={onLeftPanMeasured}
             />
 
             {/* Debug Values */}

@@ -19,16 +19,17 @@ const PAN_HEIGHT = PAN_WIDTH / PAN_ASPECT;
 // Pan spacing from beam pivot
 const PAN_HANGING_SPAN = BEAM_WIDTH * 0.8;
 
-
 type TradeScaleProps = {
   playerOffer: Partial<Record<ResourceType, number>>;
   npcOffer: { resource: ResourceType; amount: number };
   unitValues: Record<ResourceType, number>;
   onRemoveItem?: (res: ResourceType) => void;
 
+  onLeftPanMeasured?: (pos: { x: number; y: number }) => void; //
+
 };
 
-export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: TradeScaleProps) => {
+export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem, onLeftPanMeasured }: TradeScaleProps) => {
   const playerTotal = Object.entries(playerOffer).reduce((sum, [res, qty]) => {
     return sum + (unitValues[res as ResourceType] || 0) * (qty || 0);
   }, 0);
@@ -36,6 +37,21 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
   const npcTotal = (unitValues[npcOffer.resource] || 0) * npcOffer.amount;
   const imbalance = Math.max(-1, Math.min(1, (npcTotal - playerTotal) / npcTotal));
   const rotation = imbalance * 15;
+
+  const leftPanRef = React.useRef<View>(null);
+
+  // Measure once after layout
+  React.useEffect(() => {
+    if (!leftPanRef.current || !onLeftPanMeasured) return;
+
+    leftPanRef.current.measure((x, y, width, height, pageX, pageY) => {
+      onLeftPanMeasured({
+        x: pageX + width / 2,
+        y: pageY + height / 2,
+      });
+    });
+  }, [playerOffer, onLeftPanMeasured]);
+
 
   // Beam pivot (middle Y of beam image)
   const pivotY = BEAM_TOP + BEAM_HEIGHT / 2;
@@ -128,23 +144,24 @@ export const TradeScale = ({ playerOffer, npcOffer, unitValues, onRemoveItem }: 
         ]}
         resizeMode="contain"
       />
-      <Animated.View
-        pointerEvents="box-none"
+      <View
+        ref={leftPanRef}
+        collapsable={false} // required for measure() to work on Android
         style={{
           position: 'absolute',
           transform: [
             { translateX: leftTip.x },
             { translateY: leftTip.y + PAN_HEIGHT * 0.15 },
           ],
-          alignItems: 'center',
           width: PAN_WIDTH,
+          alignItems: 'center',
         }}
       >
+        <Animated.View pointerEvents="box-none">
+          {renderItems(playerOffer, onRemoveItem)}
+        </Animated.View>
+      </View>
 
-
-
-        {renderItems(playerOffer, onRemoveItem)}
-      </Animated.View>
 
       {/* Right Pan */}
       <Animated.Image
