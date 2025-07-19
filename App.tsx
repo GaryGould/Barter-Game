@@ -144,6 +144,10 @@ export default function App() {
   const specialNpcCurrentX = useRef(0);
   const { width, height } = useWindowDimensions();
 
+//tap vs hold
+  const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heldResourceRef = useRef<ResourceType | null>(null);
+
 //flying item refs
   const inventoryRefs = useRef<Record<ResourceType, View | null>>({
     salt: null,
@@ -473,27 +477,42 @@ const renderNpcRow = () => (
               <TouchableOpacity
                 key={res}
                 disabled={isDisabled}
-                onPress={() => {
+                onPressIn={() => {
                   if (isDisabled) return;
 
-                  inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
-                    if (!leftPanPosition) return;
+                  heldResourceRef.current = res;
 
-                    const start = { x: x + width / 2, y: y + height / 2 };
-                    const destination = leftPanPosition;
+                  const sendItem = () => {
+                    if (resources[res] <= 0) return;
 
-                    flyingRef.current?.fly(res, start, destination);
+                    inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
+                      if (!leftPanPosition) return;
 
-                    setTimeout(() => {
+                      const start = { x: x + width / 2, y: y + height / 2 };
+                      const destination = leftPanPosition;
+
                       setResources(prev => ({ ...prev, [res]: prev[res] - 1 }));
                       setPlayerOffer(prev => ({
                         ...prev,
                         [res]: (prev[res] || 0) + 1,
                       }));
-                    }, 400);
-                  });
+
+                      flyingRef.current?.fly(res, start, destination);
+                    });
+                  };
+
+                  sendItem(); // Immediately send one
+                  holdIntervalRef.current = setInterval(sendItem, 150); // Repeat every 150ms
+                }}
+                onPressOut={() => {
+                  heldResourceRef.current = null;
+                  if (holdIntervalRef.current) {
+                    clearInterval(holdIntervalRef.current);
+                    holdIntervalRef.current = null;
+                  }
                 }}
               >
+
                 <View
                   ref={(ref) => {
                     if (ref) inventoryRefs.current[res] = ref;

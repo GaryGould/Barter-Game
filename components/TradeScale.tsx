@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { CLAMPED_WIDTH } from '../normalize';
 import { ResourceType } from '../App';
@@ -55,6 +55,12 @@ export const TradeScale = ({
 
   const npcTotal = (unitValues[npcOffer.resource] || 0) * npcOffer.amount;
 
+
+  // press vs press and hold
+  const removeHoldIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heldRemoveResourceRef = useRef<ResourceType | null>(null);
+  
+  
   // Convert imbalance into a -1 to 1 ratio
   const imbalance = Math.max(-1, Math.min(1, (npcTotal - playerTotal) / npcTotal));
 
@@ -120,10 +126,27 @@ export const TradeScale = ({
           <View style={styles.topRow}>
             {topRow.map(([res, count], index) => (
               <TouchableOpacity
-                key={`top-${res}-${index}`}
-                onPress={() => onRemoveItem?.(res)}
+                key={`top-${res}-${index}`} // or `bottom-${res}-${index}`
+                onPressIn={() => {
+                  heldRemoveResourceRef.current = res;
+
+                  const remove = () => {
+                    onRemoveItem?.(res);
+                  };
+
+                  remove(); // Remove one immediately
+                  removeHoldIntervalRef.current = setInterval(remove, 150);
+                }}
+                onPressOut={() => {
+                  heldRemoveResourceRef.current = null;
+                  if (removeHoldIntervalRef.current) {
+                    clearInterval(removeHoldIntervalRef.current);
+                    removeHoldIntervalRef.current = null;
+                  }
+                }}
                 style={styles.itemWithCount}
               >
+
                 <Image source={resourceIcons[res]} style={styles.itemIcon} />
                 <View style={styles.countCircle}>
                   <Text style={styles.countCircleText}>{count}</Text>
@@ -137,7 +160,23 @@ export const TradeScale = ({
           {bottomRow.map(([res, count], index) => (
             <TouchableOpacity
               key={`bottom-${res}-${index}`}
-              onPress={() => onRemoveItem?.(res)}
+              onPressIn={() => {
+                heldRemoveResourceRef.current = res;
+
+                const remove = () => {
+                  onRemoveItem?.(res);
+                };
+
+                remove(); // Remove one immediately
+                removeHoldIntervalRef.current = setInterval(remove, 150);
+              }}
+              onPressOut={() => {
+                heldRemoveResourceRef.current = null;
+                if (removeHoldIntervalRef.current) {
+                  clearInterval(removeHoldIntervalRef.current);
+                  removeHoldIntervalRef.current = null;
+                }
+              }}
               style={styles.itemWithCount}
             >
               <Image source={resourceIcons[res]} style={styles.itemIcon} />
@@ -145,6 +184,8 @@ export const TradeScale = ({
                 <Text style={styles.countCircleText}>{count}</Text>
               </View>
             </TouchableOpacity>
+
+
           ))}
         </View>
       </View>
