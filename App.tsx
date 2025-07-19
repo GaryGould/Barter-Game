@@ -29,6 +29,7 @@ const wallLeftPos = 0 - wallWidth;
 const wallRightPos = 0 - wallWidth;
 
 
+
 //import components
 import { TradeScale } from './components/TradeScale';
 import { NPCSlot } from './components/NPCSlot';
@@ -119,11 +120,23 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 
 export default function App() {
 
-
+  //world events
   const [showWorldEvent, setShowWorldEvent] = useState(false);
   const worldEventTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const specialNpcAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const worldEventOpacity = useRef(new Animated.Value(0)).current;
 
+
+  //special npc animation
+  const specialNpcAnimX = useRef(new Animated.Value(0)).current;
+  const specialNpcRequestRef = useRef<number | null>(null);
+  const specialNpcPaused = useRef(false);
+  const specialNpcDirection = useRef<'left' | 'right'>('right');
+  const specialNpcStart = useRef(0);
+  const specialNpcEnd = useRef(0);
+  const specialNpcSpeed = 20; // px per second
+  const specialNpcLastTimestamp = useRef<number | null>(null);
+  const specialNpcCurrentX = useRef(0);
   const { width, height } = useWindowDimensions();
 
   const [resources, setResources] = useState<Record<ResourceType, number>>({
@@ -191,6 +204,11 @@ export default function App() {
   const [trade, setTrade] = useState<Trade | null>(null);
   const [tradePreferences, setTradePreferences] = useState<TradePreferences | null>(null);
   const [playerOffer, setPlayerOffer] = useState<Partial<Record<ResourceType, number>>>({});
+  const [specialNpc, setSpecialNpc] = useState<{
+    x: Animated.Value;
+    direction: 'left' | 'right';
+    sprite: any;
+  } | null>(null);
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
   const [worldEventText, setWorldEventText] = useState<string>('');
   const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
@@ -254,9 +272,38 @@ export default function App() {
 
 
 
+  const handleSpecialNpcPress = () => {
+    const tradeData: Trade = {
+      give: 'tools',
+      giveAmount: 1,
+      want: 'apples',
+      wantAmount: 5,
+    };
 
+    const unitValues: Record<ResourceType, number> = {
+      salt: 1,
+      apples: 5,
+      tools: 25,
+      pottery: 12,
+      shells: 8,
+    };
+
+    setTrade(tradeData);
+    setTradePreferences({
+      likes: ['salt'],
+      dislikes: ['pottery'],
+      unitValues,
+    });
+    setSelectedNpcIndex(-999);
+
+    // ⏸ Pause movement
+    specialNpcPaused.current = true;
+  };
+  
+  
 const handleOptionSelect = (option: 'buy' | 'decline') => {
   if (selectedNpcIndex === null) return;
+  const isSpecialNpc = selectedNpcIndex === -999;
 
   if (option === 'buy' && trade) {
 const unitValues = (setTrade as any).debug?.unitValues || {};
@@ -275,6 +322,9 @@ if (playerTotal >= npcTotal) {
   newResources[trade.give] += trade.giveAmount;
 
   setResources(newResources);
+  if (acceptedTradeCount === 0) {
+    spawnSpecialNpc();
+  }
 } else {
   return; // Not enough value
 }
@@ -285,15 +335,17 @@ if (playerTotal >= npcTotal) {
   const exitDirection: Direction = Math.random() < 0.5 ? 'left' : 'right';
   const enterDirection: Direction = Math.random() < 0.5 ? 'left' : 'right';
 
-  setNpcs(prev => {
-    const updated = [...prev];
-    updated[index] = {
-      ...updated[index],
-      direction: exitDirection,
-      visible: false,
-    };
-    return updated;
-  });
+  if (!isSpecialNpc) {
+    setNpcs(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        direction: exitDirection,
+        visible: false,
+      };
+      return updated;
+    });
+  
 
   const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
 
@@ -336,7 +388,7 @@ if (playerTotal >= npcTotal) {
       });
     }, 0);
   }, safeExitDelay);
-  
+}
   // return offered resources if player declined
   if (option === 'decline') {
     setResources(prevResources => {
@@ -353,6 +405,11 @@ if (playerTotal >= npcTotal) {
   setSelectedNpcIndex(null);
   setTrade(null);
   setPlayerOffer({});
+  //if stopped, special npc starts walking again
+  if (isSpecialNpc) {
+    specialNpcPaused.current = false;
+    specialNpcLastTimestamp.current = null; // Reset time tracking to resume cleanly
+  }
   // Hide world event early if active
   if (showWorldEvent) {
     if (worldEventTimerRef.current) {
@@ -440,7 +497,65 @@ const renderResourceSection = () => (
       return newOffer;
     });
   };
+  const spawnSpecialNpc = () => {
+    const direction: Direction = Math.random() < 0.5 ? 'left' : 'right';
+    const sprite = require('./assets/npc_special.png');
+    const SPRITE_WIDTH = 80;
+    const BUFFER = SPRITE_WIDTH + 20;
 
+    const startX = direction === 'left' ? VIRTUAL_WIDTH + BUFFER : -BUFFER;
+    const endX = direction === 'left' ? -BUFFER : VIRTUAL_WIDTH + BUFFER;
+
+    specialNpcDirection.current = direction;
+    specialNpcStart.current = startX;
+    specialNpcEnd.current = endX;
+    specialNpcAnimX.setValue(startX);
+    specialNpcCurrentX.current = startX;
+    specialNpcAnimX.removeAllListeners();
+    specialNpcAnimX.addListener(({ value }) => {
+      specialNpcCurrentX.current = value;
+    });    specialNpcPaused.current = false;
+    specialNpcLastTimestamp.current = null;
+
+    setSpecialNpc({ x: specialNpcAnimX, direction, sprite });
+
+    const animate = (timestamp: number) => {
+      if (specialNpcPaused.current) {
+        specialNpcRequestRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      if (specialNpcLastTimestamp.current == null) {
+        specialNpcLastTimestamp.current = timestamp;
+        specialNpcRequestRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      const dt = (timestamp - specialNpcLastTimestamp.current) / 1000; // seconds
+      specialNpcLastTimestamp.current = timestamp;
+
+      const current = specialNpcCurrentX.current;
+      const directionFactor = direction === 'left' ? -1 : 1;
+      const nextX = current + specialNpcSpeed * dt * directionFactor;
+
+      const finished = direction === 'left' ? nextX <= endX : nextX >= endX;
+
+      if (finished) {
+        setSpecialNpc(null);
+        specialNpcAnimX.removeAllListeners();
+        setTimeout(spawnSpecialNpc, 6000);
+        return;
+      }
+
+      specialNpcAnimX.setValue(nextX);
+      specialNpcRequestRef.current = requestAnimationFrame(animate);
+    };
+
+    specialNpcRequestRef.current = requestAnimationFrame(animate);
+  };
+  
+  
+  
   const triggerWorldEvent = () => {
 
     //fade in event
@@ -589,6 +704,41 @@ return (
         },
       ]}
     >
+      {specialNpc && (
+        <View
+          style={{
+            position: 'absolute',
+            top: VIRTUAL_HEIGHT / 2 - 40, // Centers vertically assuming ~80px sprite height
+            left: '50%',
+            width: VIRTUAL_WIDTH,
+            height: 80,
+            transform: [{ translateX: -VIRTUAL_WIDTH / 2 }],
+            overflow: 'visible',
+          }}
+        >
+          <Animated.View
+            style={{
+              transform: [{ translateX: specialNpc.x }],
+              position: 'absolute',
+            }}
+          >
+            <TouchableOpacity onPress={handleSpecialNpcPress}>
+              <Image
+                source={specialNpc.sprite}
+                style={{
+                  width: 80,
+                  height: 80,
+                  transform: specialNpc.direction === 'left' ? [{ scaleX: -1 }] : [{ scaleX: 1 }],
+                }}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </Animated.View>
+
+        </View>
+      )}
+
+
       {renderNpcRow()}
       <View style={styles.blackOverlayBox} />
       {renderResourceSection()}
