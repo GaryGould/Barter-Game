@@ -203,22 +203,19 @@ export default function App() {
     return values as Record<ResourceType, number>;
   }
   
-  //clickable npc traders
-  const [npcs, setNpcs] = useState<NPC[]>(Array.from({ length: 3 }, (_, i) => {
-    const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
-    const selling = resourcePool[Math.floor(Math.random() * resourcePool.length)];
-
+  // npc traders
+  const [npcs, setNpcs] = useState<NPC[]>(() => {
+    const initialGoods: ResourceType[] = ['salt', 'pottery', 'apples'];
     const spriteMap: Record<ResourceType, any> = {
       salt: require('./assets/npc_salt.png'),
       apples: require('./assets/npc_apples.png'),
       tools: require('./assets/npc_tools.png'),
       pottery: require('./assets/npc_pottery.png'),
       shells: require('./assets/npc_shells.png'),
-      cow: require('./assets/Icons/cow.png')
-
+      cow: require('./assets/Icons/cow.png'),
     };
 
-    return {
+    return initialGoods.map((selling, i) => ({
       id: i + 1,
       key: `npc-${i + 1}`,
       sprite: spriteMap[selling],
@@ -226,8 +223,9 @@ export default function App() {
       visible: true,
       direction: Math.random() < 0.5 ? 'left' : 'right',
       speed: Math.floor(200 + Math.random() * 100),
-    };
-  }));
+    }));
+  });
+  
   
 
   //trade values
@@ -242,6 +240,8 @@ export default function App() {
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
   const [worldEventText, setWorldEventText] = useState<string>('');
   const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
+  const [recentlyOfferedGoods, setRecentlyOfferedGoods] = useState<ResourceType[]>([]);
+
   const [specialNpcSpawnedFirstTime, setSpecialNpcSpawnedFirstTime] = useState(false);
   type GameEventType = 'victory' | 'loss' | 'tutorial' | null;
   const [gameEvent, setGameEvent] = useState<GameEventType>(null);
@@ -354,6 +354,10 @@ if (playerTotal >= npcTotal) {
 
   // Player receives the NPC's item
   newResources[trade.give] += trade.giveAmount;
+
+  //add this to recently offfered goods
+  setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
+
   // Show win screen if cow was purchased
   if (trade.give === 'cow') {
     setGameEvent('victory');
@@ -391,8 +395,11 @@ if (playerTotal >= npcTotal) {
   const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
 
   setTimeout(() => {
-    const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    let resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    resourcePool = resourcePool.filter(r => !recentlyOfferedGoods.includes(r));
+
     const selling = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+    setRecentlyOfferedGoods(prev => [selling, ...prev].slice(0, 2));
 
     const spriteMap: Record<ResourceType, any> = {
       salt: require('./assets/npc_salt.png'),
