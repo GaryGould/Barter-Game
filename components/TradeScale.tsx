@@ -128,81 +128,52 @@ export const TradeScale = ({
       .filter(([_, count]) => (count || 0) > 0)
       .map(([res, count]) => [res as ResourceType, count as number]);
 
-    const bottomRow = flatItems.slice(0, 3); // first 3
-    const topRow = flatItems.slice(3, 5);    // next 2 (if any)
+    const bottomRow = flatItems.slice(0, 3);
+    const topRow = flatItems.slice(3, 5);
+
+    const renderStack = (row: [ResourceType, number][], rowKey: string) =>
+      row.map(([res, count], index) => {
+        const Wrapper = onRemoveItem ? TouchableOpacity : View;
+        const wrapperProps = onRemoveItem
+          ? {
+            onPressIn: () => {
+              heldRemoveResourceRef.current = res;
+              const remove = () => onRemoveItem(res);
+              remove();
+              removeHoldIntervalRef.current = setInterval(remove, 150);
+            },
+            onPressOut: () => {
+              heldRemoveResourceRef.current = null;
+              if (removeHoldIntervalRef.current) {
+                clearInterval(removeHoldIntervalRef.current);
+                removeHoldIntervalRef.current = null;
+              }
+            },
+          }
+          : {};
+
+        return (
+          <Wrapper
+            key={`${rowKey}-${res}-${index}`}
+            style={styles.itemWithCount}
+            {...wrapperProps}
+          >
+            <Image source={resourceIcons[res]} style={styles.itemIcon} />
+            <View style={styles.countCircle}>
+              <Text style={styles.countCircleText}>{count}</Text>
+            </View>
+          </Wrapper>
+        );
+      });
 
     return (
       <View style={styles.stackWrapper}>
-        {topRow.length > 0 && (
-          <View style={styles.topRow}>
-            {topRow.map(([res, count], index) => (
-              <TouchableOpacity
-                key={`top-${res}-${index}`} // or `bottom-${res}-${index}`
-                onPressIn={() => {
-                  heldRemoveResourceRef.current = res;
-
-                  const remove = () => {
-                    onRemoveItem?.(res);
-                  };
-
-                  remove(); // Remove one immediately
-                  removeHoldIntervalRef.current = setInterval(remove, 150);
-                }}
-                onPressOut={() => {
-                  heldRemoveResourceRef.current = null;
-                  if (removeHoldIntervalRef.current) {
-                    clearInterval(removeHoldIntervalRef.current);
-                    removeHoldIntervalRef.current = null;
-                  }
-                }}
-                style={styles.itemWithCount}
-              >
-
-                <Image source={resourceIcons[res]} style={styles.itemIcon} />
-                <View style={styles.countCircle}>
-                  <Text style={styles.countCircleText}>{count}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.bottomRow}>
-          {bottomRow.map(([res, count], index) => (
-            <TouchableOpacity
-              key={`bottom-${res}-${index}`}
-              onPressIn={() => {
-                heldRemoveResourceRef.current = res;
-
-                const remove = () => {
-                  onRemoveItem?.(res);
-                };
-
-                remove(); // Remove one immediately
-                removeHoldIntervalRef.current = setInterval(remove, 150);
-              }}
-              onPressOut={() => {
-                heldRemoveResourceRef.current = null;
-                if (removeHoldIntervalRef.current) {
-                  clearInterval(removeHoldIntervalRef.current);
-                  removeHoldIntervalRef.current = null;
-                }
-              }}
-              style={styles.itemWithCount}
-            >
-              <Image source={resourceIcons[res]} style={styles.itemIcon} />
-              <View style={styles.countCircle}>
-                <Text style={styles.countCircleText}>{count}</Text>
-              </View>
-            </TouchableOpacity>
-
-
-          ))}
-        </View>
+        {topRow.length > 0 && <View style={styles.topRow}>{renderStack(topRow, 'top')}</View>}
+        <View style={styles.bottomRow}>{renderStack(bottomRow, 'bottom')}</View>
       </View>
     );
   };
-
+  
   //
   // ---- RENDER FINAL SCALE ----
   //
@@ -254,15 +225,17 @@ export const TradeScale = ({
       <Animated.View
         style={{
           position: 'absolute',
+          width: PAN_WIDTH, // this ensures consistent layout like left pan
+          alignItems: 'center',
           transform: [
             { translateX: rightTip.x },
             { translateY: rightTip.y + PAN_HEIGHT * 0.15 },
           ],
-          alignItems: 'center',
         }}
       >
         {renderItems({ [npcOffer.resource]: npcOffer.amount })}
       </Animated.View>
+
     </View>
   );
 };
