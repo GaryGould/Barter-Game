@@ -539,7 +539,11 @@ const renderNpcRow = () => (
                         if (!leftPanPosition) return;
                         const start = { x: x + width / 2, y: y + height / 2 };
                         const destination = leftPanPosition;
-                        flyingRef.current?.fly(res, start, destination);
+
+                        // Defer fly() to avoid setState during render/layout
+                        setTimeout(() => {
+                          flyingRef.current?.fly(res, start, destination);
+                        }, 0);
                       });
 
                       return updated;
