@@ -503,7 +503,9 @@ const renderNpcRow = () => (
           {row.map((res: ResourceType) => {
             if (res === 'cow') return null; // hide cow from inventory UI
 
-            const isDisabled = !trade || resources[res] <= 0;
+            //if we don't have, or if this item is disabled
+            const isOfferingThis = trade?.give === res;
+            const isDisabled = !trade || resources[res] <= 0 || isOfferingThis;            
             return (
               <TouchableOpacity
                 key={res}
@@ -555,7 +557,10 @@ const renderNpcRow = () => (
                     if (ref) inventoryRefs.current[res] = ref;
                   }}
                   collapsable={false}
-                  style={{ alignItems: 'center' }} // Add this so the wrapper has layout
+                  style={{
+                    alignItems: 'center',
+                    opacity: trade && isDisabled ? 0.3 : 1,
+                  }}
                 >
                   <ResourceDisplay name={res} amount={resources[res]} />
                 </View>
