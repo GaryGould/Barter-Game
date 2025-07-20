@@ -1,4 +1,6 @@
-  import React from 'react';
+//resourceDisplay.tsx
+
+import React from 'react';
   import { View, Text, Image, StyleSheet } from 'react-native';
   import { ResourceType } from '../App';
 
@@ -8,6 +10,8 @@
     tools: require('../assets/Icons/Tools.png'),
     pottery: require('../assets/Icons/pottery.png'),
     shells: require('../assets/Icons/shell.png'),
+    cow: require('../assets/Icons/cow.png')
+
   };
 
   type ResourceDisplayProps = {

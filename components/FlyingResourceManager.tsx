@@ -9,6 +9,8 @@ const resourceIcons: Record<ResourceType, any> = {
     tools: require('../assets/Icons/Tools.png'),
     pottery: require('../assets/Icons/pottery.png'),
     shells: require('../assets/Icons/shell.png'),
+    cow: require('../assets/Icons/cow.png')
+
 };
 
 type FlyingResource = {

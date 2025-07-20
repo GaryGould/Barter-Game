@@ -83,8 +83,19 @@ export const TradeScale = ({
         y: y + height / 2,
       });
     });
-    
-  }, [playerOffer, onLeftPanMeasured]);
+
+    return () => {
+      // Clean up hold-to-remove state on unmount
+      // Prevents items from being removed after the trade scale has closed
+      heldRemoveResourceRef.current = null;
+
+      if (removeHoldIntervalRef.current) {
+        clearInterval(removeHoldIntervalRef.current);
+        removeHoldIntervalRef.current = null;
+      }
+    };
+  }, [onLeftPanMeasured]);
+  
 
   // The beam rotates around this pivot Y
   const pivotY = BEAM_TOP + BEAM_HEIGHT / 2;

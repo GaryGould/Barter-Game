@@ -52,7 +52,7 @@ type NPC = {
 
 
 
-export type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells';
+export type ResourceType = 'salt' | 'apples' | 'tools' | 'pottery' | 'shells' | 'cow';
 type Trade = {
   give: ResourceType;
   giveAmount: number;
@@ -66,6 +66,7 @@ const resourceIcons: Record<ResourceType, any> = {
   tools: require('./assets/Icons/Tools.png'),
   pottery: require('./assets/Icons/pottery.png'),
   shells: require('./assets/Icons/shell.png'),
+  cow: require('./assets/Icons/cow.png')
 };
 
 //modify values when traders prefer a certain good
@@ -109,6 +110,11 @@ const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
     neutral: [20, 25],
     disliked: [15, 20],
   },
+  cow:{
+    favored: [200, 200],
+    neutral: [200, 200],
+    disliked: [200, 200],
+  },
 };
 
 // Used to determine how many units of each resource can appear in trade generation
@@ -118,6 +124,7 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
   shells: [1, 4],
   pottery: [1, 3],
   tools: [1, 1],
+  cow:[1,1]
 };
 
 export default function App() {
@@ -155,6 +162,7 @@ export default function App() {
     tools: null,
     pottery: null,
     shells: null,
+    cow: null,
   });
   
   const [resources, setResources] = useState<Record<ResourceType, number>>({
@@ -163,6 +171,7 @@ export default function App() {
     tools: 1,
     pottery: 2,
     shells: 5,
+    cow: 0,
   });
   const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -205,6 +214,8 @@ export default function App() {
       tools: require('./assets/npc_tools.png'),
       pottery: require('./assets/npc_pottery.png'),
       shells: require('./assets/npc_shells.png'),
+      cow: require('./assets/Icons/cow.png')
+
     };
 
     return {
@@ -231,6 +242,7 @@ export default function App() {
   const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
   const [worldEventText, setWorldEventText] = useState<string>('');
   const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
+  const [specialNpcSpawnedFirstTime, setSpecialNpcSpawnedFirstTime] = useState(false);
 
   // Called when player taps on an NPC to initiate trade
   const handleNpcPress = (index: number) => {
@@ -293,10 +305,10 @@ export default function App() {
 
   const handleSpecialNpcPress = () => {
     const tradeData: Trade = {
-      give: 'tools',
+      give: 'cow',
       giveAmount: 1,
-      want: 'apples',
-      wantAmount: 5,
+      want: 'pottery',
+      wantAmount: 4,
     };
 
     const unitValues: Record<ResourceType, number> = {
@@ -305,6 +317,7 @@ export default function App() {
       tools: 25,
       pottery: 12,
       shells: 8,
+      cow: 40, 
     };
 
     setTrade(tradeData);
@@ -341,9 +354,12 @@ if (playerTotal >= npcTotal) {
   newResources[trade.give] += trade.giveAmount;
 
   setResources(newResources);
-  if (acceptedTradeCount === 0) {
+  // Spawn special NPC once after first successful trade
+  if (!specialNpcSpawnedFirstTime && acceptedTradeCount >= 1) {
     spawnSpecialNpc();
+    setSpecialNpcSpawnedFirstTime(true);
   }
+
 } else {
   return; // Not enough value
 }
@@ -378,6 +394,7 @@ if (playerTotal >= npcTotal) {
       tools: require('./assets/npc_tools.png'),
       pottery: require('./assets/npc_pottery.png'),
       shells: require('./assets/npc_shells.png'),
+      cow: require('./assets/Icons/cow.png')
     };
 
     const newNpc: NPC = {
@@ -424,6 +441,12 @@ if (playerTotal >= npcTotal) {
   setSelectedNpcIndex(null);
   setTrade(null);
   setPlayerOffer({});
+  // Stop hold-to-add
+  heldResourceRef.current = null;
+  if (holdIntervalRef.current) {
+    clearInterval(holdIntervalRef.current);
+    holdIntervalRef.current = null;
+  }
   //if stopped, special npc starts walking again
   if (isSpecialNpc) {
     specialNpcPaused.current = false;
@@ -472,6 +495,8 @@ const renderNpcRow = () => (
       {([['salt', 'apples'], ['tools', 'pottery', 'shells']] as ResourceType[][]).map((row, i) => (
         <View key={i} style={styles.resourceRow}>
           {row.map((res: ResourceType) => {
+            if (res === 'cow') return null; // hide cow from inventory UI
+
             const isDisabled = !trade || resources[res] <= 0;
             return (
               <TouchableOpacity
@@ -483,23 +508,29 @@ const renderNpcRow = () => (
                   heldResourceRef.current = res;
 
                   const sendItem = () => {
-                    if (resources[res] <= 0) return;
+                    setResources(prev => {
+                      if (prev[res] <= 0) return prev; // Prevent going below 0
 
-                    inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
-                      if (!leftPanPosition) return;
+                      const updated = { ...prev, [res]: prev[res] - 1 };
 
-                      const start = { x: x + width / 2, y: y + height / 2 };
-                      const destination = leftPanPosition;
-
-                      setResources(prev => ({ ...prev, [res]: prev[res] - 1 }));
-                      setPlayerOffer(prev => ({
-                        ...prev,
-                        [res]: (prev[res] || 0) + 1,
+                      // Update player offer
+                      setPlayerOffer(offer => ({
+                        ...offer,
+                        [res]: (offer[res] || 0) + 1,
                       }));
 
-                      flyingRef.current?.fly(res, start, destination);
+                      // Animate after confirming decrement
+                      inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
+                        if (!leftPanPosition) return;
+                        const start = { x: x + width / 2, y: y + height / 2 };
+                        const destination = leftPanPosition;
+                        flyingRef.current?.fly(res, start, destination);
+                      });
+
+                      return updated;
                     });
                   };
+                  
 
                   sendItem(); // Immediately send one
                   holdIntervalRef.current = setInterval(sendItem, 150); // Repeat every 150ms

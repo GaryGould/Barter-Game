@@ -84,7 +84,7 @@ export const TradeModal = ({
             </View>
 
             {/* Accept / Decline Buttons with checkmark */}
-            <View style={styles.buttonRow}>
+            <View style={[styles.buttonRow, { zIndex: 999 }]}>
                 <TouchableOpacity
                     style={[styles.fullButtonWrapper, !hasEnough && styles.disabledButton]}
                     onPress={onAccept}
