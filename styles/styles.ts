@@ -106,5 +106,36 @@ resourceRow: {
   width: '100%',
   marginVertical: 4,
 },
-
+  victoryOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 99,
+  },
+  victoryTitle: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  victoryEmoji: {
+    fontSize: 80,
+  },
+  victorySubtitle: {
+    fontSize: 18,
+    marginTop: 30,
+    textAlign: 'center',
+  },
+  victoryButton: {
+    marginTop: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#000',
+    borderRadius: 12,
+  },
+  victoryButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
 });

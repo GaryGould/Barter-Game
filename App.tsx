@@ -111,9 +111,9 @@ const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
     disliked: [15, 20],
   },
   cow:{
-    favored: [200, 200],
-    neutral: [200, 200],
-    disliked: [200, 200],
+    favored: [0, 0],
+    neutral: [0, 0],
+    disliked: [0, 0],
   },
 };
 
@@ -243,6 +243,8 @@ export default function App() {
   const [worldEventText, setWorldEventText] = useState<string>('');
   const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
   const [specialNpcSpawnedFirstTime, setSpecialNpcSpawnedFirstTime] = useState(false);
+  type GameEventType = 'victory' | 'loss' | 'tutorial' | null;
+  const [gameEvent, setGameEvent] = useState<GameEventType>(null);
 
   // Called when player taps on an NPC to initiate trade
   const handleNpcPress = (index: number) => {
@@ -317,7 +319,7 @@ export default function App() {
       tools: 25,
       pottery: 12,
       shells: 8,
-      cow: 40, 
+      cow: 120, 
     };
 
     setTrade(tradeData);
@@ -352,6 +354,10 @@ if (playerTotal >= npcTotal) {
 
   // Player receives the NPC's item
   newResources[trade.give] += trade.giveAmount;
+  // Show win screen if cow was purchased
+  if (trade.give === 'cow') {
+    setGameEvent('victory');
+  }
 
   setResources(newResources);
   // Spawn special NPC once after first successful trade
@@ -714,7 +720,28 @@ const renderNpcRow = () => (
   
   
 
+  const renderGameEventOverlay = () => {
+    if (gameEvent === 'victory') {
+      return (
+        <View style={styles.victoryOverlay} pointerEvents="auto">
+          <Text style={styles.victoryTitle}>You Win!</Text>
+          <Text style={styles.victoryEmoji}>🐄</Text>
+          <Text style={styles.victorySubtitle}>
+            You have acquired the legendary cow.
+          </Text>
+          <TouchableOpacity
+            style={styles.victoryButton}
+            onPress={() => setGameEvent(null)}
+          >
+            <Text style={styles.victoryButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
+    return null;
+  };
+  
 
   const renderOverlay = () => {
     if (!trade) return null;
@@ -853,7 +880,7 @@ return (
         />
       </>
     )}
-
+    {renderGameEventOverlay()}
   </View>
 );
 
