@@ -1,9 +1,9 @@
+
 import React, { useRef } from 'react';
 import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { CLAMPED_WIDTH } from '../normalize';
 import { ResourceType } from '../App';
 import { resourceIcons } from '../resourceRegistry';
-
 
 // The size and layout of the scale and pans
 const beamImage = require('../assets/Scale/scaleBeam.png');
@@ -17,6 +17,12 @@ const BEAM_TOP = 0;
 const PAN_WIDTH = BEAM_WIDTH * 0.42;
 const PAN_ASPECT = 2;
 const PAN_HEIGHT = PAN_WIDTH / PAN_ASPECT;
+
+
+//components that check for outdated press/holds
+const heldRemoveResourceRef = { current: null as ResourceType | null };
+const removeHoldIntervalRef = { current: null as NodeJS.Timeout | null };
+
 
 // How far the pans hang from the pivot point
 const PAN_HANGING_SPAN = BEAM_WIDTH * 0.8;
@@ -55,10 +61,6 @@ export const TradeScale = ({
 
   const npcTotal = (unitValues[npcOffer.resource] || 0) * npcOffer.amount;
 
-
-  // press vs press and hold
-  const removeHoldIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const heldRemoveResourceRef = useRef<ResourceType | null>(null);
   
   
   // Convert imbalance into a -1 to 1 ratio
@@ -96,6 +98,14 @@ export const TradeScale = ({
     };
   }, [onLeftPanMeasured]);
   
+  // Additional safeguard: stop stuck intervals if component is re-rendered but not unmounted
+  React.useEffect(() => {
+    if (heldRemoveResourceRef.current && removeHoldIntervalRef.current) {
+      heldRemoveResourceRef.current = null;
+      clearInterval(removeHoldIntervalRef.current);
+      removeHoldIntervalRef.current = null;
+    }
+  }, []);
 
   // The beam rotates around this pivot Y
   const pivotY = BEAM_TOP + BEAM_HEIGHT / 2;
@@ -138,8 +148,11 @@ export const TradeScale = ({
           ? {
             onPressIn: () => {
               heldRemoveResourceRef.current = res;
-              const remove = () => onRemoveItem(res);
-              remove();
+              const remove = () => {
+                if (heldRemoveResourceRef.current === res) {
+                  onRemoveItem(res);
+                }
+              };              remove();
               removeHoldIntervalRef.current = setInterval(remove, 150);
             },
             onPressOut: () => {
@@ -238,6 +251,13 @@ export const TradeScale = ({
 
     </View>
   );
+};
+export const cancelAllScaleRemovals = () => {
+  heldRemoveResourceRef.current = null;
+  if (removeHoldIntervalRef.current) {
+    clearInterval(removeHoldIntervalRef.current);
+    removeHoldIntervalRef.current = null;
+  }
 };
 
 //

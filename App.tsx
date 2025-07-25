@@ -33,7 +33,7 @@ import { FlyingResourceManager, FlyingResourceManagerHandle } from './components
 
 
 //import components
-import { TradeScale } from './components/TradeScale';
+import { TradeScale, cancelAllScaleRemovals } from './components/TradeScale';
 import { NPCSlot } from './components/NPCSlot';
 import { ResourceDisplay } from './components/ResourceDisplay';
 import { TradeModal } from './components/TradeModal';
@@ -518,6 +518,7 @@ const renderNpcRow = () => (
                 key={res}
                 disabled={isDisabled}
                 onPressIn={() => {
+                  cancelAllScaleRemovals();
                   if (isDisabled) return;
 
                   heldResourceRef.current = res;
