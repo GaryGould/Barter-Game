@@ -174,6 +174,8 @@ export default function App() {
     cow: 0,
   });
   const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
+  const [rightPanPosition, setRightPanPosition] = useState<{ x: number; y: number } | null>(null);
+
 
   function assignUnitValues(
     likes: ResourceType[],
@@ -349,32 +351,71 @@ const playerTotal = Object.entries(playerOffer).reduce((total, [key, amount]) =>
 
 const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
 
-if (playerTotal >= npcTotal) {
-  // Player gives the offered items
-  const newResources = { ...resources };
+    if (playerTotal >= npcTotal) {
+      if (rightPanPosition && inventoryRefs.current[trade.give]) {
+        inventoryRefs.current[trade.give]?.measureInWindow((x, y, width, height) => {
+          const OFFSET_X = -40;
+          const OFFSET_Y = -20;
+          const target = {
+            x: x + width / 2 + OFFSET_X,
+            y: y + height / 2 + OFFSET_Y,
+          };
+
+          const maxFly = Math.min(trade.giveAmount, 10);
+          const flyDuration = 50;
+          const delay = maxFly * flyDuration + 100;
+
+          for (let i = 0; i < maxFly; i++) {
+            setTimeout(() => {
+              flyingRef.current?.fly(trade.give, rightPanPosition, target);
+            }, i * flyDuration);
+          }
+
+          setTimeout(() => {
+            const newResources = { ...resources };
+            newResources[trade.give] += trade.giveAmount;
+            setResources(newResources);
+
+            setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
+
+            if (trade.give === 'cow') {
+              setGameEvent('victory');
+            }
+
+            if (!specialNpcSpawnedFirstTime && acceptedTradeCount >= 1) {
+              spawnSpecialNpc();
+              setSpecialNpcSpawnedFirstTime(true);
+            }
+
+            setSelectedNpcIndex(null);
+            setTrade(null);
+            setPlayerOffer({});
+          }, delay);
+        });
+      } else {
+        // Fallback if position is missing
+        const newResources = { ...resources };
+        newResources[trade.give] += trade.giveAmount;
+        setResources(newResources);
+
+        setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
+
+        if (trade.give === 'cow') {
+          setGameEvent('victory');
+        }
+
+        if (!specialNpcSpawnedFirstTime && acceptedTradeCount >= 1) {
+          spawnSpecialNpc();
+          setSpecialNpcSpawnedFirstTime(true);
+        }
+
+        setSelectedNpcIndex(null);
+        setTrade(null);
+        setPlayerOffer({});
+      }
+    }
 
 
-  // Player receives the NPC's item
-  newResources[trade.give] += trade.giveAmount;
-
-  //add this to recently offfered goods
-  setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
-
-  // Show win screen if cow was purchased
-  if (trade.give === 'cow') {
-    setGameEvent('victory');
-  }
-
-  setResources(newResources);
-  // Spawn special NPC once after first successful trade
-  if (!specialNpcSpawnedFirstTime && acceptedTradeCount >= 1) {
-    spawnSpecialNpc();
-    setSpecialNpcSpawnedFirstTime(true);
-  }
-
-} else {
-  return; // Not enough value
-}
 
   }
 
@@ -474,9 +515,10 @@ if (playerTotal >= npcTotal) {
   }
   
   
-  setSelectedNpcIndex(null);
-  setTrade(null);
-  setPlayerOffer({});
+  // Wait ~600ms to let flying animations finish before unmounting the modal
+    setSelectedNpcIndex(null);
+    setTrade(null);
+    setPlayerOffer({});
   // Stop hold-to-add
   heldResourceRef.current = null;
   if (holdIntervalRef.current) {
@@ -809,6 +851,7 @@ const renderNpcRow = () => (
             likes={tradePreferences.likes}
             dislikes={tradePreferences.dislikes}
             onLeftPanMeasured={setLeftPanPosition}
+            onRightPanMeasured={setRightPanPosition}
           />
         )}
       </View>
