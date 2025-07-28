@@ -86,28 +86,28 @@ type TradePreferences = {
 // Each resource has a hidden point value range used during trade generation
 const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
   salt: {
-    favored: [1.5, 2],
+    favored: [2, 2],
     neutral: [1, 1],
     disliked: [0.5, 0.8],
   },
   apples: {
-    favored: [6, 8],
-    neutral: [3, 6],
-    disliked: [2, 4],
+    favored: [7, 8],
+    neutral: [4, 5],
+    disliked: [2, 3],
   },
   shells: {
-    favored: [12, 15],
-    neutral: [8, 12],
-    disliked: [6, 10],
+    favored: [11, 12],
+    neutral: [8, 9],
+    disliked: [5, 6],
   },
   pottery: {
-    favored: [15, 20],
-    neutral: [9, 15],
-    disliked: [7, 12],
+    favored: [15, 16],
+    neutral: [12, 13],
+    disliked: [9, 10],
   },
   tools: {
-    favored: [25, 30],
-    neutral: [20, 25],
+    favored: [28, 29],
+    neutral: [24, 25],
     disliked: [15, 20],
   },
   cow:{
@@ -119,7 +119,7 @@ const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
 
 // Used to determine how many units of each resource can appear in trade generation
 const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
-  salt: [3, 25],
+  salt: [10, 35],
   apples: [2, 8],
   shells: [1, 4],
   pottery: [1, 3],
@@ -310,24 +310,26 @@ export default function App() {
       give: 'cow',
       giveAmount: 1,
       want: 'pottery',
-      wantAmount: 4,
+      wantAmount: 4, // Keep fixed for now — avoids scale bugs
     };
 
+    // Neutral-only pricing
     const unitValues: Record<ResourceType, number> = {
-      salt: 1,
-      apples: 5,
-      tools: 25,
-      pottery: 12,
-      shells: 8,
-      cow: 120, 
+      salt: Math.random() * (editablePointRanges.salt.neutral[1] - editablePointRanges.salt.neutral[0]) + editablePointRanges.salt.neutral[0],
+      apples: Math.random() * (editablePointRanges.apples.neutral[1] - editablePointRanges.apples.neutral[0]) + editablePointRanges.apples.neutral[0],
+      tools: Math.random() * (editablePointRanges.tools.neutral[1] - editablePointRanges.tools.neutral[0]) + editablePointRanges.tools.neutral[0],
+      pottery: Math.random() * (editablePointRanges.pottery.neutral[1] - editablePointRanges.pottery.neutral[0]) + editablePointRanges.pottery.neutral[0],
+      shells: Math.random() * (editablePointRanges.shells.neutral[1] - editablePointRanges.shells.neutral[0]) + editablePointRanges.shells.neutral[0],
+      cow: 120,
     };
 
     setTrade(tradeData);
     setTradePreferences({
-      likes: ['salt'],
-      dislikes: ['pottery'],
+      likes: [],
+      dislikes: [],
       unitValues,
     });
+    
     setSelectedNpcIndex(-999);
 
     // ⏸ Pause movement
@@ -395,10 +397,31 @@ if (playerTotal >= npcTotal) {
   const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
 
   setTimeout(() => {
-    let resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
-    resourcePool = resourcePool.filter(r => !recentlyOfferedGoods.includes(r));
+    let basePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
-    const selling = resourcePool[Math.floor(Math.random() * resourcePool.length)];
+    let selling: ResourceType;
+
+    // Force salt to be sold if player has none and it hasn't been offered recently
+    if (!recentlyOfferedGoods.includes('salt') && resources.salt === 0) {
+      selling = 'salt';
+    } else {
+      // Filter out recently offered goods
+      const filtered = basePool.filter(r => !recentlyOfferedGoods.includes(r));
+
+      // Fallback if everything was recently offered
+      const eligible = filtered.length > 0 ? filtered : basePool;
+
+      // Weight salt higher in the random pool
+      const weightedPool = eligible.flatMap(r =>
+        r === 'salt' ? Array(5).fill(r) : [r]
+      );
+
+      // Pick one at random
+      selling = weightedPool[Math.floor(Math.random() * weightedPool.length)] as ResourceType;
+    }
+    
+
+    // ignore recently offered goods
     setRecentlyOfferedGoods(prev => [selling, ...prev].slice(0, 2));
 
     const spriteMap: Record<ResourceType, any> = {
