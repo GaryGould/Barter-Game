@@ -670,8 +670,9 @@ const renderNpcRow = () => (
             y: y + height / 2,
           };
 
-          flyingRef.current?.fly(res, start, end);
-        });
+          setTimeout(() => {
+            flyingRef.current?.fly(res, start, end);
+          }, 0);        });
       }
 
       // Immediately return the resource
