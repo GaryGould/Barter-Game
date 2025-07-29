@@ -658,6 +658,23 @@ const renderNpcRow = () => (
       newOffer[res] = currentCount - 1;
       if (newOffer[res] === 0) delete newOffer[res];
 
+      // Launch fly-back animation (non-blocking)
+      if (leftPanPosition && inventoryRefs.current[res]) {
+        inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
+          const start = {
+            x: leftPanPosition.x,
+            y: leftPanPosition.y,
+          };
+          const end = {
+            x: x + width / 2,
+            y: y + height / 2,
+          };
+
+          flyingRef.current?.fly(res, start, end);
+        });
+      }
+
+      // Immediately return the resource
       setResources(prevResources => ({
         ...prevResources,
         [res]: (prevResources[res] || 0) + 1,
