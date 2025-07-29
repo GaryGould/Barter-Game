@@ -273,6 +273,67 @@ export default function App() {
   const [pieShouldInstantJumpToOne, setPieShouldInstantJumpToOne] = useState(false);
 
 
+  // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
+  const handleAppleSpoilage = React.useCallback(() => {
+    const invRef = inventoryRefs.current.apples;
+    const applesNow = resources.apples || 0;
+    if (applesNow <= 0) return;
+
+    // Choose a random integer strictly greater than 1/4 and strictly less than 1/2.
+    // For tiny counts where that interval collapses, fall back to 1 (but never exceed apples).
+    const lowExclusive = Math.floor(applesNow * 0.25);  // exclusive lower bound
+    const highExclusive = Math.ceil(applesNow * 0.5);   // exclusive upper bound
+    let minLoss = Math.max(1, lowExclusive + 1);
+    let maxLossExclusive = Math.max(minLoss + 1, highExclusive); // ensure room for at least one integer
+
+    // If range is still invalid (very small apples), just take 1 safely.
+    let loss = 1;
+    if (maxLossExclusive > minLoss) {
+      const span = maxLossExclusive - minLoss; // at least 1
+      loss = minLoss + Math.floor(Math.random() * span);
+    }
+    loss = Math.min(loss, applesNow);
+
+    // Visuals: spawn two apples rising+fading from the inventory slot (or fewer if loss < 2)
+    const visuals = Math.min(2, loss);
+
+    if (invRef && typeof (invRef as any).measureInWindow === 'function') {
+      (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
+        const start = { x: x + w / 2, y: y + h / 2 };
+        for (let i = 0; i < visuals; i++) {
+          const jitterX = (Math.random() - 0.5) * 14;   // small horizontal variety
+          const risePx = 60 + Math.random() * 20;       // vary rise distance a bit
+          const duration = 550 + Math.random() * 200;   // vary duration a bit
+          setTimeout(() => {
+            flyingRef.current?.riseAndFade(
+              'apples',
+              { x: start.x + jitterX, y: start.y },
+              risePx,
+              duration
+            );
+          }, i * 60); // slight staggering
+        }
+
+        // NEW: white text bubble, rises slower and stays longer before fading
+        flyingRef.current?.riseLabel(
+          `${loss} apples spoiled`,
+          start,
+          90,     // rise a bit higher than icons
+          1400,   // slower/longer total rise duration
+          700     // linger ~0.7s before starting the fade
+        );
+      });
+  
+    }
+
+    // Deduct inventory
+    setResources(prev => ({
+      ...prev,
+      apples: Math.max(0, (prev.apples || 0) - loss),
+    }));
+  }, [resources.apples]);
+
+
   
   const handleTradeCompleted = React.useCallback(
     (trade: Trade, playerOffer: Partial<Record<ResourceType, number>>) => {
@@ -286,11 +347,6 @@ export default function App() {
 
           if (prev > 0 && next === 0 && !hasSpoilageTriggered) {
             setHasSpoilageTriggered(true);
-            setResources(r => {
-              const apples = r.apples ?? 0;
-              const loss = Math.max(1, Math.floor(Math.random() * Math.ceil(apples / 2)));
-              return { ...r, apples: Math.max(0, apples - loss) };
-            });
           }
 
           return next;
@@ -797,12 +853,16 @@ const renderNpcRow = () => (
                           progress={freezeApplePieAtZero ? 0 : appleTimer}
                           animate={!pieShouldInstantJumpToOne}
                           onDepleted={() => {
-                            // Animation has *finished* landing at 0 — now pin UI and reset logic.
+                            // First: do the actual spoilage and visuals.
+                            handleAppleSpoilage();
+
+                            // Then: pin UI at 0 briefly and reset the timer for the next cycle.
                             setFreezeApplePieAtZero(true);
                             setPieShouldInstantJumpToOne(true);
                             setAppleTimer(1);
                             setHasSpoilageTriggered(false);
                           }}
+                          
                         />
 
                       </View>
