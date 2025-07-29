@@ -9,6 +9,7 @@
   const beamImage = require('../assets/Scale/scaleBeam.png');
   const panImage = require('../assets/Scale/scalePan.png');
 
+
   const BEAM_WIDTH = CLAMPED_WIDTH * 0.9;
   const BEAM_ASPECT = 4;
   const BEAM_HEIGHT = BEAM_WIDTH / BEAM_ASPECT;
@@ -104,7 +105,7 @@ type TradeScaleProps = {
           removeHoldIntervalRef.current = null;
         }
       };
-    }, [onLeftPanMeasured, onRightPanMeasured]);
+    }, [rotation, onLeftPanMeasured, onRightPanMeasured]);
     
     
     // Additional safeguard: stop stuck intervals if component is re-rendered but not unmounted
