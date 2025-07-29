@@ -354,8 +354,8 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     if (playerTotal >= npcTotal) {
       if (rightPanPosition && inventoryRefs.current[trade.give]) {
         inventoryRefs.current[trade.give]?.measureInWindow((x, y, width, height) => {
-          const OFFSET_X = -40;
-          const OFFSET_Y = -20;
+          const OFFSET_X = -32;
+          const OFFSET_Y = -27;
           const target = {
             x: x + width / 2 + OFFSET_X,
             y: y + height / 2 + OFFSET_Y,
