@@ -134,6 +134,7 @@ export default function App() {
   const worldEventTimerRef = useRef<NodeJS.Timeout | null>(null);
   const specialNpcAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const worldEventOpacity = useRef(new Animated.Value(0)).current;
+  const tradeIntroAnimatedRef = useRef(false);
 
   //flying item animation
   const flyingRef = useRef<FlyingResourceManagerHandle>(null);
@@ -870,6 +871,7 @@ const renderNpcRow = () => (
             dislikes={tradePreferences.dislikes}
             onLeftPanMeasured={setLeftPanPosition}
             onRightPanMeasured={setRightPanPosition}
+            introAnimatedRef={tradeIntroAnimatedRef}
           />
         )}
       </View>

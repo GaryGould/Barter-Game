@@ -1,10 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated } from 'react-native';
 import { TradeScale } from './TradeScale';
 import { VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../normalize';
 import { ResourceType } from '../App';
 import { ResourceDisplay } from './ResourceDisplay';
-import { Image } from 'react-native';
 
 type Trade = {
     give: ResourceType;
@@ -24,21 +23,77 @@ type Props = {
     dislikes: ResourceType[];
     onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
     onRightPanMeasured?: (pos: { x: number; y: number }) => void;
+    introAnimatedRef: React.RefObject<boolean>;
 
 };
 
 export const TradeModal = ({
-    trade,
-    playerOffer,
-    unitValues,
-    onAccept,
-    onDecline,
-    onRemoveItem,
-    likes,
-    dislikes,
-    onLeftPanMeasured,
-    onRightPanMeasured,
+  trade,
+  playerOffer,
+  unitValues,
+  onAccept,
+  onDecline,
+  onRemoveItem,
+  likes,
+  dislikes,
+  onLeftPanMeasured,
+  onRightPanMeasured,
+    introAnimatedRef,
+
 }: Props) => {
+    // Animation for labels ("Likes:" and "Dislikes:")
+    const labelAnim = React.useRef(new Animated.Value(1)).current;
+    // Animation for preference icons (resource images)
+    const iconAnim = React.useRef(new Animated.Value(1)).current;
+
+
+    React.useEffect(() => {
+        const isFirstTime = !introAnimatedRef.current;
+        introAnimatedRef.current = true;
+
+        // First-time values are more exaggerated
+        const labelScale = isFirstTime ? 1.7 : 1.5;
+        const iconScale = isFirstTime ? 1.7 : 1.5;
+        const startDelay = isFirstTime ? 500 : 50;
+
+        // Label grow/shrink
+        const labelSequence = Animated.sequence([
+            Animated.timing(labelAnim, {
+                toValue: labelScale,
+                duration: 250,
+                useNativeDriver: true,
+            }),
+            Animated.timing(labelAnim, {
+                toValue: 1,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+        ]);
+
+        // Icon grow/shrink (starts after 125ms)
+        const iconSequence = Animated.sequence([
+            Animated.delay(125),
+            Animated.timing(iconAnim, {
+                toValue: iconScale,
+                duration: 250,
+                useNativeDriver: true,
+            }),
+            Animated.timing(iconAnim, {
+                toValue: 1,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+        ]);
+
+        // Run both sequences in parallel, after a short initial delay
+        Animated.sequence([
+            Animated.delay(startDelay), // delay before starting
+            Animated.parallel([labelSequence, iconSequence]),
+        ]).start();
+    }, []);
+    
+      
+      
     const npcValue = (unitValues[trade.give] || 0) * trade.giveAmount;
     const playerTotal = Object.entries(playerOffer).reduce((sum, [res, qty]) => {
         return sum + (unitValues[res as ResourceType] || 0) * (qty || 0);
@@ -68,21 +123,37 @@ export const TradeModal = ({
             {/* Likes and Dislikes */}
             <View style={styles.preferencesRow}>
                 <View style={styles.preferenceRowItem}>
-                    <Text style={styles.preferenceLabel}>Likes:</Text>
-                    {likes.map((res) => (
-                        <View key={res} style={styles.smallIconWrapper}>
-                            <ResourceDisplay name={res} amount={0} showAmount={false} />
-                        </View>
+                    <Animated.Text style={[styles.preferenceLabel, { transform: [{ scale: labelAnim }] }]}>
+                        Likes:
+                    </Animated.Text>
+                        {likes.map((res) => (
+                        <Animated.View
+                            key={`like-${res}`}
+                                style={{ transform: [{ scale: iconAnim }] }}
+                            >
+                            <View style={styles.smallIconWrapper}>
+                                <ResourceDisplay name={res} amount={0} showAmount={false} />
+                            </View>
+                        </Animated.View>
                     ))}
+  
                 </View>
 
                 <View style={styles.preferenceRowItem}>
-                    <Text style={styles.preferenceLabel}>Dislikes:</Text>
-                    {dislikes.map((res) => (
-                        <View key={res} style={styles.smallIconWrapper}>
-                            <ResourceDisplay name={res} amount={0} showAmount={false} />
-                        </View>
+                    <Animated.Text style={[styles.preferenceLabel, { transform: [{ scale: labelAnim }] }]}>
+                        Dislikes:
+                    </Animated.Text>
+                        {dislikes.map((res) => (
+                        <Animated.View
+                            key={`dislike-${res}`}
+                                style={{ transform: [{ scale: iconAnim }] }}
+                            >
+                            <View style={styles.smallIconWrapper}>
+                                <ResourceDisplay name={res} amount={0} showAmount={false} />
+                            </View>
+                        </Animated.View>
                     ))}
+  
                 </View>
             </View>
 
