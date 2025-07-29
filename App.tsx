@@ -1,5 +1,5 @@
 //app.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Animated
 
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 //styles
 import { styles } from './styles/styles';
@@ -127,6 +128,89 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
   cow:[1,1]
 };
 
+
+
+const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; animate?: boolean; onDepleted?: () => void }) => {
+  const radius = 12;
+
+  const animatedProgress = useRef(new Animated.Value(progress)).current;
+  const [currentProgress, setCurrentProgress] = useState(progress);
+
+  useEffect(() => {
+    if (animate) {
+      Animated.timing(animatedProgress, {
+        toValue: progress,
+        duration: 400,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      animatedProgress.stopAnimation();
+      animatedProgress.setValue(progress);
+    }
+  }, [progress, animate]);
+
+
+  const zeroNotifiedRef = useRef(false);
+  const targetRef = useRef(progress);
+
+  useEffect(() => {
+    targetRef.current = progress;
+    if (progress !== 0) zeroNotifiedRef.current = false;
+  }, [progress]);
+
+  useEffect(() => {
+    const id = animatedProgress.addListener(({ value }) => {
+      const clamped = Math.max(0, Math.min(1, value));
+      setCurrentProgress(clamped);
+
+      if (
+        onDepleted &&
+        animate &&
+        targetRef.current === 0 &&
+        clamped <= 0.001 &&
+        !zeroNotifiedRef.current
+      ) {
+        zeroNotifiedRef.current = true;
+        onDepleted();
+      }
+    });
+    return () => animatedProgress.removeListener(id);
+  }, [animate, onDepleted]);
+
+
+  const angle = currentProgress * 2 * Math.PI;
+
+  if (currentProgress <= 0) {
+    return (
+      <Svg width={radius * 2} height={radius * 2}>
+        <Circle cx={radius} cy={radius} r={radius} fill="#ccc" />
+        <Circle cx={radius} cy={radius} r={radius * 0.5} fill="black" />
+      </Svg>
+    );
+  }
+
+  const largeArc = angle > Math.PI ? 1 : 0;
+  const x = radius + radius * Math.sin(angle);
+  const y = radius - radius * Math.cos(angle);
+  const d = `
+    M ${radius} ${radius}
+    L ${radius} 0
+    A ${radius} ${radius} 0 ${largeArc} 1 ${x} ${y}
+    Z
+  `;
+
+  return (
+    <Svg width={radius * 2} height={radius * 2}>
+      <Circle cx={radius} cy={radius} r={radius} fill="#ccc" />
+      <Path d={d} fill="#3cb043" />
+      <Circle cx={radius} cy={radius} r={radius * 0.5} fill="black" />
+    </Svg>
+  );
+};
+
+
+
+
 export default function App() {
 
   //world events
@@ -174,10 +258,66 @@ export default function App() {
     shells: 5,
     cow: 0,
   });
+
+  //references to the pan positions in the visual scale
   const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
   const [rightPanPosition, setRightPanPosition] = useState<{ x: number; y: number } | null>(null);
 
+  //fruit decaying 
+  const [appleTimer, setAppleTimer] = useState(1);  // 1 = full pie
+  const [hasSeenAppleTrade, setHasSeenAppleTrade] = useState(false);
+  const [hasSpoilageTriggered, setHasSpoilageTriggered] = useState(false);
+  // keep the UI pinned at 0 right after spoilage, even if appleTimer resets to 1
+  const [freezeApplePieAtZero, setFreezeApplePieAtZero] = useState(false);
+  // on the first frame of the next cycle, jump to 1 without animation, then animate down
+  const [pieShouldInstantJumpToOne, setPieShouldInstantJumpToOne] = useState(false);
 
+
+  
+  const handleTradeCompleted = React.useCallback(
+    (trade: Trade, playerOffer: Partial<Record<ResourceType, number>>) => {
+      if (!hasSeenAppleTrade && (trade.give === 'apples' || (playerOffer['apples'] ?? 0) > 0)) {
+        setHasSeenAppleTrade(true);
+      }
+
+      const applyDecrement = () => {
+        setAppleTimer(prev => {
+          const next = Math.max(0, prev - 0.25);
+
+          if (prev > 0 && next === 0 && !hasSpoilageTriggered) {
+            setHasSpoilageTriggered(true);
+            setResources(r => {
+              const apples = r.apples ?? 0;
+              const loss = Math.max(1, Math.floor(Math.random() * Math.ceil(apples / 2)));
+              return { ...r, apples: Math.max(0, apples - loss) };
+            });
+          }
+
+          return next;
+        });
+      };
+
+      if (freezeApplePieAtZero) {
+        // Unfreeze UI: first frame jumps to 1 with no animation, then animate down on the next tick
+        setFreezeApplePieAtZero(false);
+        setTimeout(() => {
+          setPieShouldInstantJumpToOne(false);
+          applyDecrement();
+        }, 0);
+      } else {
+        applyDecrement();
+      }
+
+
+      
+      
+    },
+    [hasSeenAppleTrade]
+  );
+  
+  
+  
+  
   function assignUnitValues(
     likes: ResourceType[],
     dislikes: ResourceType[],
@@ -341,6 +481,8 @@ export default function App() {
   
   
 const handleOptionSelect = (option: 'buy' | 'decline') => {
+  const appleCountBefore = resources.apples;
+
   if (selectedNpcIndex === null) return;
   const isSpecialNpc = selectedNpcIndex === -999;
 
@@ -376,7 +518,13 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
             const newResources = { ...resources };
             newResources[trade.give] += trade.giveAmount;
             setResources(newResources);
+            // after setResources(...)
+            const appleCountAfter = newResources.apples;
+            if (appleCountBefore === 0 && appleCountAfter > 0) {
+              setAppleTimer(1); // reset pie to full if we just gained apples after having 0
+            }
 
+            handleTradeCompleted(trade, playerOffer);
             setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
 
             if (trade.give === 'cow') {
@@ -398,6 +546,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
         const newResources = { ...resources };
         newResources[trade.give] += trade.giveAmount;
         setResources(newResources);
+        handleTradeCompleted(trade, playerOffer);
 
         setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
 
@@ -640,8 +789,26 @@ const renderNpcRow = () => (
                     opacity: trade && isDisabled ? 0.3 : 1,
                   }}
                 >
-                  <ResourceDisplay name={res} amount={resources[res]} />
-                </View>
+                  <View style={{ position: 'relative' }}>
+                    <ResourceDisplay name={res} amount={resources[res]} />
+                    {res === 'apples' && hasSeenAppleTrade && resources.apples > 0 && (
+                      <View style={{ position: 'absolute', bottom: -2, right: -2 }}>
+                        <PieTimer
+                          progress={freezeApplePieAtZero ? 0 : appleTimer}
+                          animate={!pieShouldInstantJumpToOne}
+                          onDepleted={() => {
+                            // Animation has *finished* landing at 0 — now pin UI and reset logic.
+                            setFreezeApplePieAtZero(true);
+                            setPieShouldInstantJumpToOne(true);
+                            setAppleTimer(1);
+                            setHasSpoilageTriggered(false);
+                          }}
+                        />
+
+                      </View>
+                    )}
+                  </View>
+                  </View>
               </TouchableOpacity>
             );
           })}
