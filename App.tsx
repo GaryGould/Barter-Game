@@ -267,11 +267,16 @@ export default function App() {
   const [appleTimer, setAppleTimer] = useState(1);  // 1 = full pie
   const [hasSeenAppleTrade, setHasSeenAppleTrade] = useState(false);
   const [hasSpoilageTriggered, setHasSpoilageTriggered] = useState(false);
+
   // keep the UI pinned at 0 right after spoilage, even if appleTimer resets to 1
   const [freezeApplePieAtZero, setFreezeApplePieAtZero] = useState(false);
+
   // on the first frame of the next cycle, jump to 1 without animation, then animate down
   const [pieShouldInstantJumpToOne, setPieShouldInstantJumpToOne] = useState(false);
 
+  // --- Spoilage label timings---
+  const SPOIL_LABEL_RISE_MS = 2200;
+  const SPOIL_LABEL_LINGER_MS = 1800;
 
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
   const handleAppleSpoilage = React.useCallback(() => {
@@ -314,14 +319,20 @@ export default function App() {
           }, i * 60); // slight staggering
         }
 
-        // NEW: white text bubble, rises slower and stays longer before fading
+        // white text bubble rises when apples spoil
         flyingRef.current?.riseLabel(
           `${loss} apples spoiled`,
           start,
-          90,     // rise a bit higher than icons
-          1400,   // slower/longer total rise duration
-          700     // linger ~0.7s before starting the fade
+          80,
+          2200,
+          1800,
+          () => {
+            // Reveal the full meter as soon as the text finishes
+            setFreezeApplePieAtZero(false);
+            setPieShouldInstantJumpToOne(false);
+          }
         );
+        
       });
   
     }
@@ -853,17 +864,24 @@ const renderNpcRow = () => (
                           progress={freezeApplePieAtZero ? 0 : appleTimer}
                           animate={!pieShouldInstantJumpToOne}
                           onDepleted={() => {
-                            // First: do the actual spoilage and visuals.
+                            // 1) Do the spoilage + text visuals.
                             handleAppleSpoilage();
 
-                            // Then: pin UI at 0 briefly and reset the timer for the next cycle.
+                            // 2) Pin the UI at 0 while the text bubble is visible.
                             setFreezeApplePieAtZero(true);
+
+                            // 3) Prep the next cycle immediately (jump to full while hidden).
                             setPieShouldInstantJumpToOne(true);
                             setAppleTimer(1);
                             setHasSpoilageTriggered(false);
+
+                            // 4) When the text finishes, unfreeze to reveal the full meter.
+                            setTimeout(() => {
+                              setFreezeApplePieAtZero(false);
+                            }, SPOIL_LABEL_RISE_MS + SPOIL_LABEL_LINGER_MS);
                           }}
-                          
                         />
+
 
                       </View>
                     )}

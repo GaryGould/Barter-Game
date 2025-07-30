@@ -29,22 +29,29 @@ type FloatingLabel = {
 };
 
 export type FlyingResourceManagerHandle = {
-    fly: (name: ResourceType, start: { x: number; y: number }, end: { x: number; y: number }) => void;
+    fly: (
+        name: ResourceType,
+        start: { x: number; y: number },
+        end: { x: number; y: number }
+    ) => void;
+
     riseAndFade: (
         name: ResourceType,
         start: { x: number; y: number },
         risePx?: number,
         durationMs?: number
     ) => void;
-    // New: show a white text bubble that rises and then fades
+
     riseLabel: (
         text: string,
         start: { x: number; y: number },
-        risePx?: number,
+        riseHeight?: number,
         durationMs?: number,
-        fadeDelayMs?: number
+        lingerMs?: number,
+        onComplete?: () => void
     ) => void;
 };
+  
 
 
 
@@ -95,7 +102,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 setFlying(prev => prev.filter(f => f.id !== id));
             });
         },
-        riseLabel(text, start, risePx = 80, durationMs = 1400, fadeDelayMs = 600) {
+        riseLabel(text, start, risePx = 80, durationMs = 1400, fadeDelayMs = 600, onComplete?: () => void) {
             const id = idRef.current++;
             const anim = new Animated.ValueXY({ x: start.x, y: start.y });
             const target = { x: start.x, y: start.y - risePx };
@@ -117,10 +124,12 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                         useNativeDriver: true,
                     }),
                 ]),
-            ]).start(() => {
+            ]).start(({ finished }) => {
                 setLabels(prev => prev.filter(l => l.id !== id));
+                if (finished && onComplete) onComplete();
             });
         },
+
     }));
     
     
