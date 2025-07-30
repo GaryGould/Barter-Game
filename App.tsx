@@ -132,25 +132,64 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 
 const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; animate?: boolean; onDepleted?: () => void }) => {
   const radius = 12;
+  // Pulse animation state (scale) 
+  const pulseScale = useRef(new Animated.Value(1)).current;
 
+  // Remember the last target so we can detect decreases
+  const prevProgressTargetRef = useRef(progress);
   const animatedProgress = useRef(new Animated.Value(progress)).current;
   const [currentProgress, setCurrentProgress] = useState(progress);
 
   useEffect(() => {
-    if (animate) {
+    if (!animate) {
+      // Jump immediately, no pulse
+      animatedProgress.stopAnimation();
+      animatedProgress.setValue(progress);
+      pulseScale.setValue(1);
+      prevProgressTargetRef.current = progress;
+      return;
+    }
+
+    const isDecrease = progress < prevProgressTargetRef.current;
+
+    if (isDecrease) {
+      // 1) Slight grow at the start
+      pulseScale.stopAnimation();
+      Animated.timing(pulseScale, {
+        toValue: 1.40,
+        duration: 120,
+        useNativeDriver: true,
+      }).start();
+
+      // 2) Animate meter change
+      Animated.timing(animatedProgress, {
+        toValue: progress,
+        duration: 600,
+        useNativeDriver: false, // Path/SVG angle needs layout driver
+      }).start(() => {
+        // 3) Shrink back when done
+        Animated.timing(pulseScale, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }).start();
+      });
+    } else {
+      // No pulse on increases or no change
+      pulseScale.setValue(1);
       Animated.timing(animatedProgress, {
         toValue: progress,
         duration: 400,
         useNativeDriver: false,
       }).start();
-    } else {
-      animatedProgress.stopAnimation();
-      animatedProgress.setValue(progress);
     }
+
+    prevProgressTargetRef.current = progress;
   }, [progress, animate]);
 
 
   const zeroNotifiedRef = useRef(false);
+  
   const targetRef = useRef(progress);
 
   useEffect(() => {
@@ -182,12 +221,15 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 
   if (currentProgress <= 0) {
     return (
-      <Svg width={radius * 2} height={radius * 2}>
-        <Circle cx={radius} cy={radius} r={radius} fill="#ccc" />
-        <Circle cx={radius} cy={radius} r={radius * 0.5} fill="black" />
-      </Svg>
+      <Animated.View style={{ transform: [{ scale: pulseScale }] }}>
+        <Svg width={radius * 2} height={radius * 2}>
+          <Circle cx={radius} cy={radius} r={radius} fill="#ccc" />
+          <Circle cx={radius} cy={radius} r={radius * 0.5} fill="black" />
+        </Svg>
+      </Animated.View>
     );
   }
+  
 
   const largeArc = angle > Math.PI ? 1 : 0;
   const x = radius + radius * Math.sin(angle);
@@ -200,11 +242,13 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
   `;
 
   return (
-    <Svg width={radius * 2} height={radius * 2}>
-      <Circle cx={radius} cy={radius} r={radius} fill="#ccc" />
-      <Path d={d} fill="#3cb043" />
-      <Circle cx={radius} cy={radius} r={radius * 0.5} fill="black" />
-    </Svg>
+    <Animated.View style={{ transform: [{ scale: pulseScale }] }}>
+      <Svg width={radius * 2} height={radius * 2}>
+        <Circle cx={radius} cy={radius} r={radius} fill="#505a51ff" />
+        <Path d={d} fill="#46d850ff" />
+        <Circle cx={radius} cy={radius} r={radius * 0.5} fill="black" />
+      </Svg>
+    </Animated.View>
   );
 };
 
@@ -275,8 +319,12 @@ export default function App() {
   const [pieShouldInstantJumpToOne, setPieShouldInstantJumpToOne] = useState(false);
 
   // --- Spoilage label timings---
-  const SPOIL_LABEL_RISE_MS = 2200;
-  const SPOIL_LABEL_LINGER_MS = 1800;
+  const SPOIL_LABEL_RISE_MS = 3000;
+  const SPOIL_LABEL_LINGER_MS = 2400;
+
+  // --- Pottery fragility ---
+  const [potteryTradeCount, setPotteryTradeCount] = useState(0);
+  const [pendingPotteryBreak, setPendingPotteryBreak] = useState(false);
 
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
   const handleAppleSpoilage = React.useCallback(() => {
@@ -302,40 +350,44 @@ export default function App() {
     // Visuals: spawn two apples rising+fading from the inventory slot (or fewer if loss < 2)
     const visuals = Math.min(2, loss);
 
-    if (invRef && typeof (invRef as any).measureInWindow === 'function') {
-      (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
-        const start = { x: x + w / 2, y: y + h / 2 };
-        for (let i = 0; i < visuals; i++) {
-          const jitterX = (Math.random() - 0.5) * 14;   // small horizontal variety
-          const risePx = 60 + Math.random() * 20;       // vary rise distance a bit
-          const duration = 550 + Math.random() * 200;   // vary duration a bit
-          setTimeout(() => {
-            flyingRef.current?.riseAndFade(
-              'apples',
-              { x: start.x + jitterX, y: start.y },
-              risePx,
-              duration
-            );
-          }, i * 60); // slight staggering
-        }
+    (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
+      // Icons: anchor on the apple  
+      const APPLE_X_SHIFT = -30; // ~PieTimer radius (12) + ~2px right offset
+      const iconStart = { x: x + w / 2 + APPLE_X_SHIFT, y: y + h / 2 };
+      // Label: center on screen X; keep slot Y
+      const labelStart = { x: width / 2, y: y + h / 2 };
 
-        // white text bubble rises when apples spoil
+      for (let i = 0; i < visuals; i++) {
+        const jitterX = (Math.random() - 0.5) * 30;   // small horizontal variety
+        const risePx = 120 + Math.random() * 30;       // vary rise distance a bit
+        const duration = 750 + Math.random() * 200;   // vary duration a bit
+        setTimeout(() => {
+          flyingRef.current?.riseAndFade(
+            'apples',
+            { x: iconStart.x + jitterX, y: iconStart.y },
+            risePx,
+            duration
+          );
+        }, i * 120); // slight staggering
+      }
+
+      // white text bubble rises when apples spoil (centered X)
+      setTimeout(() => {
         flyingRef.current?.riseLabel(
           `${loss} apples spoiled`,
-          start,
+          labelStart,
           80,
           2200,
           1800,
           () => {
-            // Reveal the full meter as soon as the text finishes
             setFreezeApplePieAtZero(false);
             setPieShouldInstantJumpToOne(false);
           }
         );
-        
-      });
-  
-    }
+      }, 0);
+
+    });
+    
 
     // Deduct inventory
     setResources(prev => ({
@@ -343,23 +395,127 @@ export default function App() {
       apples: Math.max(0, (prev.apples || 0) - loss),
     }));
   }, [resources.apples]);
+  // --- Pottery break visuals + inventory decrement ---
+  const handlePotteryBreak = React.useCallback(() => {
+    // If we have no pottery, do nothing (pending break logic will handle later)
+    setResources(prev => {
+      const current = prev.pottery || 0;
+      if (current <= 0) return prev;
 
+      // Visuals: one pottery rises + fades from the pottery slot, and a centered label
+      const invRef = inventoryRefs.current.pottery;
+      if (invRef && typeof (invRef as any).measureInWindow === 'function') {
+        (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
+          const POTTERY_X_SHIFT = -30; // match apples' fixed horizontal shift
+          const iconStart = { x: x + w / 2 + POTTERY_X_SHIFT, y: y  };
+
+          const risePx = 140;   // single visual
+          const duration = 2000; // fixed duration
+
+          // Defer to next tick to avoid setState during App render
+          setTimeout(() => {
+            flyingRef.current?.riseAndFade('pottery', iconStart, risePx, duration);
+
+            const labelStart = { x: x, y: y + h / 2 };
+            flyingRef.current?.riseLabel(
+              '1 pottery broke',
+              labelStart,
+              80,
+              SPOIL_LABEL_RISE_MS,
+              SPOIL_LABEL_LINGER_MS
+            );
+          }, 0);
+        });
+      }
+
+      return { ...prev, pottery: Math.max(0, current - 1) };
+    });
+  }, [width]);
+
+  // --- Tick pottery fragility each time a trade that involves pottery completes ---
+  // If 3 pottery-involving trades occur, we break 1 pottery.
+  // If we hit 3 but have 0 pottery, we set a pending flag and wait until the next pottery trade
+  // where we *do* have pottery, then break 1 and reset.
+  const tickPotteryFragility = React.useCallback(
+    (
+      trade: Trade,
+      playerOffer: Partial<Record<ResourceType, number>>,
+      updatedResources: Record<ResourceType, number>
+    ) => {
+      const involvesPottery =
+        trade.give === 'pottery' || ((playerOffer['pottery'] ?? 0) > 0);
+
+      if (!involvesPottery) return;
+
+      setPotteryTradeCount(prevCount => {
+        // If a break was pending, try to execute it now *without* incrementing
+        if (pendingPotteryBreak) {
+          if ((updatedResources.pottery ?? 0) > 0) {
+            handlePotteryBreak();
+            setPendingPotteryBreak(false);
+            return 0; // reset counter after break
+          }
+          return prevCount; // still pending, keep as-is
+        }
+
+        const next = prevCount + 1;
+        if (next >= 3) {
+          if ((updatedResources.pottery ?? 0) > 0) {
+            handlePotteryBreak();
+            return 0; // reset after successful break
+          } else {
+            setPendingPotteryBreak(true); // wait for the next pottery trade where we have >0
+            return 3; // hold at threshold while pending
+          }
+        }
+        return next;
+      });
+    },
+    [pendingPotteryBreak, handlePotteryBreak]
+  );
 
   
   const handleTradeCompleted = React.useCallback(
     (trade: Trade, playerOffer: Partial<Record<ResourceType, number>>) => {
-      if (!hasSeenAppleTrade && (trade.give === 'apples' || (playerOffer['apples'] ?? 0) > 0)) {
+      // Does THIS completed trade involve apples?
+      const involvesApples =
+        trade.give === 'apples' || ((playerOffer['apples'] ?? 0) > 0);
+
+      // If this is the first time apples are involved, flip the flag and show the intro bubble.
+      if (involvesApples && !hasSeenAppleTrade) {
         setHasSeenAppleTrade(true);
+
+        // Only show the intro bubble if we have apples after the trade (so it appears next to something visible).
+        const applesNow = resources.apples || 0;
+        if (applesNow > 0) {
+          const invRef = inventoryRefs.current.apples;
+          if (invRef && typeof (invRef as any).measureInWindow === 'function') {
+            (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
+              const start = { x: width / 2, y: y + h / 2 };
+              // Reuse your flying text method + timings
+              flyingRef.current?.riseLabel(
+                'your fruit is starting to rot',
+                start,
+                80,
+                SPOIL_LABEL_RISE_MS,
+                SPOIL_LABEL_LINGER_MS
+              );
+            });
+          }
+        }
+      }
+
+      // Before the first apple interaction, do NOT decay.
+      if (!hasSeenAppleTrade && !involvesApples) {
+        return;
       }
 
       const applyDecrement = () => {
         setAppleTimer(prev => {
           const next = Math.max(0, prev - 0.25);
-
           if (prev > 0 && next === 0 && !hasSpoilageTriggered) {
             setHasSpoilageTriggered(true);
           }
-
           return next;
         });
       };
@@ -374,13 +530,15 @@ export default function App() {
       } else {
         applyDecrement();
       }
-
-
-      
-      
     },
-    [hasSeenAppleTrade]
+    [
+      hasSeenAppleTrade,
+      resources.apples,
+      hasSpoilageTriggered,
+      freezeApplePieAtZero
+    ]
   );
+  
   
   
   
@@ -592,6 +750,8 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
             }
 
             handleTradeCompleted(trade, playerOffer);
+            // Pottery fragility: count pottery-involving trades and break 1 every 3
+            tickPotteryFragility(trade, playerOffer, newResources);
             setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
 
             if (trade.give === 'cow') {
@@ -766,7 +926,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
   setAcceptedTradeCount(prev => {
     const newCount = prev + 1;
     if (newCount >= 3) {
-      triggerWorldEvent();
+      //triggerWorldEvent();
       return 0;
     }
     return newCount;

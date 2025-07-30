@@ -184,6 +184,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             ))}
 
         </View>
+
     );
       
 });
