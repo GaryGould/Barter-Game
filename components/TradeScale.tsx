@@ -97,14 +97,7 @@ type TradeScaleProps = {
           });
         });
       }
-
-      return () => {
-        heldRemoveResourceRef.current = null;
-        if (removeHoldIntervalRef.current) {
-          clearInterval(removeHoldIntervalRef.current);
-          removeHoldIntervalRef.current = null;
-        }
-      };
+      // No cleanup here — allow hold-to-remove to continue across re-renders/rotation changes.
     }, [rotation, onLeftPanMeasured, onRightPanMeasured]);
     
     
