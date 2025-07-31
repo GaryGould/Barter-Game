@@ -104,14 +104,26 @@ type TradeScaleProps = {
     }, [rotation, onLeftPanMeasured, onRightPanMeasured]);
     
     
-    // Additional safeguard: stop stuck intervals if component is re-rendered but not unmounted
+    //  safeguard: stop stuck intervals if component is re-rendered but not unmounted
+    // Ensure no stale timer on mount; guarantee cleanup on unmount
     React.useEffect(() => {
-      if (heldRemoveResourceRef.current && removeHoldIntervalRef.current) {
-        heldRemoveResourceRef.current = null;
+      // mount: clear any leftover interval
+      if (removeHoldIntervalRef.current) {
         clearInterval(removeHoldIntervalRef.current);
         removeHoldIntervalRef.current = null;
       }
+      heldRemoveResourceRef.current = null;
+
+      // unmount: clear active hold if user is still pressing
+      return () => {
+        heldRemoveResourceRef.current = null;
+        if (removeHoldIntervalRef.current) {
+          clearInterval(removeHoldIntervalRef.current);
+          removeHoldIntervalRef.current = null;
+        }
+      };
     }, []);
+    
 
     // The beam rotates around this pivot Y
     const pivotY = BEAM_TOP + BEAM_HEIGHT / 2;

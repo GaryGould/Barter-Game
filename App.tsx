@@ -70,6 +70,19 @@ const resourceIcons: Record<ResourceType, any> = {
   cow: require('./assets/Icons/cow.png')
 };
 
+// --- Warm up (decode) images once so they don't pop in late on first use ---
+const WarmDecoder = React.memo(() => (
+  <View style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>
+    {/* Scale assets that appear inside the trade modal */}
+    <Image source={require('./assets/Scale/scaleBeam.png')} style={{ width: 1, height: 1 }} />
+    <Image source={require('./assets/Scale/scalePan.png')} style={{ width: 1, height: 1 }} />
+    {/* Resource icons used in pans and flying animations */}
+    {Object.values(resourceIcons).map((src, i) => (
+      <Image key={i} source={src} style={{ width: 1, height: 1 }} />
+    ))}
+  </View>
+));
+
 //modify values when traders prefer a certain good
 type PreferenceLevel = 'favored' | 'neutral' | 'disliked';
 
@@ -901,6 +914,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     setSelectedNpcIndex(null);
     setTrade(null);
     setPlayerOffer({});
+  cancelAllScaleRemovals();
   // Stop hold-to-add
   heldResourceRef.current = null;
   if (holdIntervalRef.current) {
@@ -1330,6 +1344,8 @@ const renderNpcRow = () => (
 return (
   
   <View style={styles.containerWrapper}>
+    <WarmDecoder />
+
     <FlyingResourceManager ref={flyingRef} />
 
     {/* Top Tab */}
