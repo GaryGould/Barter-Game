@@ -23,7 +23,10 @@
   //components that check for outdated press/holds
   const heldRemoveResourceRef = { current: null as ResourceType | null };
   const removeHoldIntervalRef = { current: null as NodeJS.Timeout | null };
-
+  //hold acceleration
+  const REMOVE_BASE_MS = 150;
+  const removeDelayRef = { current: REMOVE_BASE_MS };
+  const removeCountRef = { current: 0 };
 
   // How far the pans hang from the pivot point
   const PAN_HANGING_SPAN = BEAM_WIDTH * 0.8;
@@ -150,21 +153,59 @@ type TradeScaleProps = {
           const wrapperProps = onRemoveItem
             ? {
               onPressIn: () => {
+                // Mark which resource is being removed during this hold.
                 heldRemoveResourceRef.current = res;
-                const remove = () => {
+              
+                const doRemove = () => {
                   if (heldRemoveResourceRef.current === res) {
                     onRemoveItem(res);
                   }
-                };              remove();
-                removeHoldIntervalRef.current = setInterval(remove, 150);
+                };
+              
+                // First removal happens instantly on press-in.
+                doRemove();
+                removeCountRef.current = 1;
+                removeDelayRef.current = REMOVE_BASE_MS;
+              
+                // If a previous timer is around, clear it (defensive).
+                if (removeHoldIntervalRef.current) {
+                  clearInterval(removeHoldIntervalRef.current);
+                  removeHoldIntervalRef.current = null;
+                }
+              
+                // Like the add side: shrink delay by 10% after the 3rd item, floor at 10% of base.
+                const tick = () => {
+                  if (heldRemoveResourceRef.current !== res) return;
+              
+                  doRemove();
+                  removeCountRef.current += 1;
+              
+                  if (removeCountRef.current >= 3) {
+                    const minDelay = REMOVE_BASE_MS * 0.35;
+                    const next = Math.max(minDelay, removeDelayRef.current * 0.90 );
+                    if (next !== removeDelayRef.current) {
+                      removeDelayRef.current = next;
+                      clearInterval(removeHoldIntervalRef.current!);
+                      removeHoldIntervalRef.current = setInterval(tick, removeDelayRef.current);
+                      return;
+                    }
+                  }
+                };
+              
+                removeHoldIntervalRef.current = setInterval(tick, removeDelayRef.current);
               },
+              
               onPressOut: () => {
+                // Stop the touch interaction + timer and reset adaptive counters.
                 heldRemoveResourceRef.current = null;
                 if (removeHoldIntervalRef.current) {
                   clearInterval(removeHoldIntervalRef.current);
                   removeHoldIntervalRef.current = null;
                 }
+                removeCountRef.current = 0;
+                removeDelayRef.current = REMOVE_BASE_MS;
               },
+              
             }
             : {};
 

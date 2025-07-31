@@ -283,6 +283,11 @@ export default function App() {
 //tap vs hold
   const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heldResourceRef = useRef<ResourceType | null>(null);
+  // acceleration for add-hold
+  const HOLD_BASE_MS = 150;
+  const holdDelayRef = useRef(HOLD_BASE_MS);
+  const holdCountRef = useRef(0);
+
 
 //flying item refs
   const inventoryRefs = useRef<Record<ResourceType, View | null>>({
@@ -994,15 +999,47 @@ const renderNpcRow = () => (
                   };
                   
 
-                  sendItem(); // Immediately send one
-                  holdIntervalRef.current = setInterval(sendItem, 150); // Repeat every 150ms
+                  // immediate first item
+                  sendItem();
+                  holdCountRef.current = 1;
+                  holdDelayRef.current = HOLD_BASE_MS;
+
+                  // guard any stray timer
+                  if (holdIntervalRef.current) {
+                    clearInterval(holdIntervalRef.current);
+                    holdIntervalRef.current = null;
+                  }
+
+                  const tick = () => {
+                    if (heldResourceRef.current !== res) return;
+
+                    sendItem();
+                    holdCountRef.current += 1;
+
+                    if (holdCountRef.current >= 3) {
+                      const minDelay = HOLD_BASE_MS * 0.35;          // floor = 10% of base
+                      const next = Math.max(minDelay, holdDelayRef.current * 0.90); // speed up 10%
+                      if (next !== holdDelayRef.current) {
+                        holdDelayRef.current = next;
+                        clearInterval(holdIntervalRef.current!);
+                        holdIntervalRef.current = setInterval(tick, holdDelayRef.current);
+                        return;
+                      }
+                    }
+                  };
+
+                  holdIntervalRef.current = setInterval(tick, holdDelayRef.current);
                 }}
                 onPressOut={() => {
+                  // Stop the hold + timer and reset the adaptive counters for next time.
                   heldResourceRef.current = null;
                   if (holdIntervalRef.current) {
                     clearInterval(holdIntervalRef.current);
                     holdIntervalRef.current = null;
                   }
+                  holdCountRef.current = 0;
+                  holdDelayRef.current = HOLD_BASE_MS;
+                
                 }}
               >
 
