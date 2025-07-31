@@ -324,6 +324,9 @@ export default function App() {
   //references to the pan positions in the visual scale
   const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
   const [rightPanPosition, setRightPanPosition] = useState<{ x: number; y: number } | null>(null);
+  // keep always-fresh copies to avoid stale y during press/hold
+  const leftPanPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const rightPanPositionRef = useRef<{ x: number; y: number } | null>(null);
 
   //fruit decaying 
   const [appleTimer, setAppleTimer] = useState(1);  // 1 = full pie
@@ -998,16 +1001,19 @@ const renderNpcRow = () => (
 
                       // Animate after confirming decrement
                       inventoryRefs.current[res]?.measureInWindow((x, y, width, height) => {
-                        if (!leftPanPosition) return;
                         const start = { x: x + width / 2, y: y + height / 2 };
-                        const destination = leftPanPosition;
 
-                        // Defer fly() to avoid setState during render/layout
-                        setTimeout(() => {
+                        const fire = () => {
+                          const base = leftPanPositionRef.current ?? leftPanPosition ?? start;
+                          // small X nudge
+                          const destination = { x: base.x - 20, y: base.y + 20 };
                           flyingRef.current?.fly(res, start, destination);
-                        }, 0);
-                      });
+                        };
 
+                        // Wait two frames so TradeScale can tilt and re-measure for THIS added item
+                        requestAnimationFrame(() => requestAnimationFrame(fire));
+                      });
+                      
                       return updated;
                     });
                   };
@@ -1325,8 +1331,8 @@ const renderNpcRow = () => (
             onRemoveItem={handleRemoveFromOffer}
             likes={tradePreferences.likes}
             dislikes={tradePreferences.dislikes}
-            onLeftPanMeasured={setLeftPanPosition}
-            onRightPanMeasured={setRightPanPosition}
+            onLeftPanMeasured={(pos) => { leftPanPositionRef.current = pos; setLeftPanPosition(pos); }}
+            onRightPanMeasured={(pos) => { rightPanPositionRef.current = pos; setRightPanPosition(pos); }}
             introAnimatedRef={tradeIntroAnimatedRef}
           />
         )}
