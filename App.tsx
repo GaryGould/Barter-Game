@@ -50,6 +50,7 @@ type NPC = {
   direction: Direction;
   speed: number;
   selling: ResourceType;
+  isExiting?: boolean; 
 };
 
 
@@ -609,6 +610,10 @@ export default function App() {
       cow: require('./assets/Icons/cow.png'),
     };
 
+    // Sellers currently shown on screen (ignore any trader that's exiting)
+    const getVisibleSelling = (list: NPC[]) =>
+      new Set(list.filter(n => n.visible && !n.isExiting).map(n => n.selling));
+
     return initialGoods.map((selling, i) => ({
       id: i + 1,
       key: `npc-${i + 1}`,
@@ -617,6 +622,7 @@ export default function App() {
       visible: true,
       direction: Math.random() < 0.5 ? 'left' : 'right',
       speed: Math.floor(200 + Math.random() * 100),
+      isExiting: false,
     }));
   });
   
@@ -837,6 +843,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
         ...updated[index],
         direction: exitDirection,
         visible: false,
+        isExiting: true,
       };
       return updated;
     });
@@ -844,29 +851,38 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
 
   const safeExitDelay = (VIRTUAL_WIDTH / 300) * 1000;
 
-  setTimeout(() => {
-    let basePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    setTimeout(() => {
+      let basePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
-    let selling: ResourceType;
+      // Block anything the *currently visible, non-exiting* traders are holding
+      const blockedByVisible = npcs
+        .filter(n => n.visible && !n.isExiting)
+        .map(n => n.selling);
+      let selling: ResourceType | undefined;
 
-    // Force salt to be sold if player has none and it hasn't been offered recently
-    if (!recentlyOfferedGoods.includes('salt') && resources.salt === 0) {
-      selling = 'salt';
-    } else {
-      // Filter out recently offered goods
-      const filtered = basePool.filter(r => !recentlyOfferedGoods.includes(r));
+      // If the player has no salt, *try* to offer salt — but only if it keeps uniqueness.
+      if (!recentlyOfferedGoods.includes('salt') && resources.salt === 0 && !blockedByVisible.includes('salt')) {
+        selling = 'salt';
+      }
 
-      // Fallback if everything was recently offered
-      const eligible = filtered.length > 0 ? filtered : basePool;
+      if (!selling) {
+        // Prefer goods not recently offered AND not held by visible traders
+        const primary = basePool.filter(
+          r => !recentlyOfferedGoods.includes(r) && !blockedByVisible.includes(r)
+        );
 
-      // Weight salt higher in the random pool
-      const weightedPool = eligible.flatMap(r =>
-        r === 'salt' ? Array(5).fill(r) : [r]
-      );
+        // If that’s empty, still enforce uniqueness vs visible traders
+        const secondary = basePool.filter(r => !blockedByVisible.includes(r));
 
-      // Pick one at random
-      selling = weightedPool[Math.floor(Math.random() * weightedPool.length)] as ResourceType;
-    }
+        // If still empty (shouldn’t happen with 3 traders), fall back to basePool
+        const eligible = primary.length > 0 ? primary : (secondary.length > 0 ? secondary : basePool);
+
+        // Lightly weight salt when present in eligible
+        const weightedPool = eligible.flatMap(r => (r === 'salt' ? [r, r] : [r]));
+
+        selling = weightedPool[Math.floor(Math.random() * weightedPool.length)] as ResourceType;
+      }
+  
     
 
     // ignore recently offered goods
@@ -889,6 +905,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
       visible: false,
       direction: enterDirection,
       speed: Math.floor(200 + Math.random() * 100),
+      isExiting: false,
     };
 
     setNpcs(prev => {
