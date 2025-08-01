@@ -11,6 +11,7 @@ import {
 
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { nextFrame, startFrameLoop } from './utils/safeTimers';
 
 //styles
 import { styles } from './styles/styles';
@@ -293,13 +294,14 @@ export default function App() {
   const specialNpcCurrentX = useRef(0);
   const { width, height } = useWindowDimensions();
 
-//tap vs hold
-  const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  //tap vs hold
+  const holdIntervalRef = useRef<null | (() => void)>(null); // store cancel fn from startFrameLoop
   const heldResourceRef = useRef<ResourceType | null>(null);
   // acceleration for add-hold
   const HOLD_BASE_MS = 150;
   const holdDelayRef = useRef(HOLD_BASE_MS);
   const holdCountRef = useRef(0);
+  
 
 
 //flying item refs
@@ -382,18 +384,19 @@ export default function App() {
         const jitterX = (Math.random() - 0.5) * 30;   // small horizontal variety
         const risePx = 120 + Math.random() * 30;       // vary rise distance a bit
         const duration = 750 + Math.random() * 200;   // vary duration a bit
-        setTimeout(() => {
+        nextFrame(() => setTimeout(() => {
           flyingRef.current?.riseAndFade(
             'apples',
             { x: iconStart.x + jitterX, y: iconStart.y },
             risePx,
             duration
           );
-        }, i * 120); // slight staggering
+        }, i * 120)); // slight staggering
       }
+      
 
       // white text bubble rises when apples spoil (centered X)
-      setTimeout(() => {
+      nextFrame(() => {
         flyingRef.current?.riseLabel(
           `${loss} apples spoiled`,
           labelStart,
@@ -405,7 +408,8 @@ export default function App() {
             setPieShouldInstantJumpToOne(false);
           }
         );
-      }, 0);
+      });
+      
 
     });
     
@@ -433,8 +437,8 @@ export default function App() {
           const risePx = 140;   // single visual
           const duration = 2000; // fixed duration
 
-          // Defer to next tick to avoid setState during App render
-          setTimeout(() => {
+          // Defer to next frame to avoid setState during App render
+          nextFrame(() => {
             flyingRef.current?.riseAndFade('pottery', iconStart, risePx, duration);
 
             const labelStart = { x: x, y: y + h / 2 };
@@ -445,7 +449,8 @@ export default function App() {
               SPOIL_LABEL_RISE_MS,
               SPOIL_LABEL_LINGER_MS
             );
-          }, 0);
+          });
+          
         });
       }
 
@@ -755,39 +760,43 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
           const delay = maxFly * flyDuration + 100;
 
           for (let i = 0; i < maxFly; i++) {
-            setTimeout(() => {
+            const launch = () => {
               flyingRef.current?.fly(trade.give, rightPanPosition, target);
-            }, i * flyDuration);
+            };
+            nextFrame(() => setTimeout(launch, i * flyDuration));
           }
 
-          setTimeout(() => {
-            const newResources = { ...resources };
-            newResources[trade.give] += trade.giveAmount;
-            setResources(newResources);
-            // after setResources(...)
-            const appleCountAfter = newResources.apples;
-            if (appleCountBefore === 0 && appleCountAfter > 0) {
-              setAppleTimer(1); // reset pie to full if we just gained apples after having 0
-            }
+          nextFrame(() => {
+            setTimeout(() => {
+              const newResources = { ...resources };
+              newResources[trade.give] += trade.giveAmount;
+              setResources(newResources);
+              // after setResources(...)
+              const appleCountAfter = newResources.apples;
+              if (appleCountBefore === 0 && appleCountAfter > 0) {
+                setAppleTimer(1); // reset pie to full if we just gained apples after having 0
+              }
 
-            handleTradeCompleted(trade, playerOffer);
-            // Pottery fragility: count pottery-involving trades and break 1 every 3
-            tickPotteryFragility(trade, playerOffer, newResources);
-            setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
+              handleTradeCompleted(trade, playerOffer);
+              // Pottery fragility: count pottery-involving trades and break 1 every 3
+              tickPotteryFragility(trade, playerOffer, newResources);
+              setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
 
-            if (trade.give === 'cow') {
-              setGameEvent('victory');
-            }
+              if (trade.give === 'cow') {
+                setGameEvent('victory');
+              }
 
-            if (!specialNpcSpawnedFirstTime && acceptedTradeCount >= 1) {
-              spawnSpecialNpc();
-              setSpecialNpcSpawnedFirstTime(true);
-            }
+              if (!specialNpcSpawnedFirstTime && acceptedTradeCount >= 1) {
+                spawnSpecialNpc();
+                setSpecialNpcSpawnedFirstTime(true);
+              }
 
-            setSelectedNpcIndex(null);
-            setTrade(null);
-            setPlayerOffer({});
-          }, delay);
+              setSelectedNpcIndex(null);
+              setTrade(null);
+              setPlayerOffer({});
+            }, delay);
+          });
+          
         });
       } else {
         // Fallback if position is missing
@@ -921,9 +930,10 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
   // Stop hold-to-add
   heldResourceRef.current = null;
   if (holdIntervalRef.current) {
-    clearInterval(holdIntervalRef.current);
+    holdIntervalRef.current(); // cancel frame loop
     holdIntervalRef.current = null;
   }
+  
   //if stopped, special npc starts walking again
   if (isSpecialNpc) {
     specialNpcPaused.current = false;
@@ -981,6 +991,9 @@ const renderNpcRow = () => (
               <TouchableOpacity
                 key={res}
                 disabled={isDisabled}
+                activeOpacity={0.7}
+                delayPressIn={0}
+                delayLongPress={0}
                 onPressIn={() => {
                   cancelAllScaleRemovals();
                   if (isDisabled) return;
@@ -1011,7 +1024,7 @@ const renderNpcRow = () => (
                         };
 
                         // Wait two frames so TradeScale can tilt and re-measure for THIS added item
-                        requestAnimationFrame(() => requestAnimationFrame(fire));
+                        nextFrame(fire);
                       });
                       
                       return updated;
@@ -1026,7 +1039,7 @@ const renderNpcRow = () => (
 
                   // guard any stray timer
                   if (holdIntervalRef.current) {
-                    clearInterval(holdIntervalRef.current);
+                    holdIntervalRef.current(); // cancel prior frame loop
                     holdIntervalRef.current = null;
                   }
 
@@ -1041,24 +1054,29 @@ const renderNpcRow = () => (
                       const next = Math.max(minDelay, holdDelayRef.current * 0.90); // speed up 10%
                       if (next !== holdDelayRef.current) {
                         holdDelayRef.current = next;
-                        clearInterval(holdIntervalRef.current!);
-                        holdIntervalRef.current = setInterval(tick, holdDelayRef.current);
-                        return;
+                        // (with frame loop we just update the interval variable; loop keeps running)
                       }
                     }
                   };
 
-                  holdIntervalRef.current = setInterval(tick, holdDelayRef.current);
+                  holdIntervalRef.current = startFrameLoop(() => holdDelayRef.current, () => {
+                    if (heldResourceRef.current !== res) return false;
+                    tick();
+                    return true;
+                  });
+                  
+                  
                 }}
                 onPressOut={() => {
                   // Stop the hold + timer and reset the adaptive counters for next time.
                   heldResourceRef.current = null;
                   if (holdIntervalRef.current) {
-                    clearInterval(holdIntervalRef.current);
+                    holdIntervalRef.current(); // cancel frame loop
                     holdIntervalRef.current = null;
                   }
                   holdCountRef.current = 0;
                   holdDelayRef.current = HOLD_BASE_MS;
+                  
                 
                 }}
               >
@@ -1133,9 +1151,10 @@ const renderNpcRow = () => (
             y: y + height / 2,
           };
 
-          setTimeout(() => {
+          nextFrame(() => {
             flyingRef.current?.fly(res, start, end);
-          }, 0);        });
+          });
+          });
       }
 
       // Immediately return the resource

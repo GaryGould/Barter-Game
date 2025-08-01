@@ -35,6 +35,12 @@
         "projectId": "19a4c73d-ec39-43da-a39d-ec49f60059c0"
       }
     },
-    "owner": "seriousmagic"
+    "owner": "seriousmagic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/19a4c73d-ec39-43da-a39d-ec49f60059c0"
+    }
   }
 }

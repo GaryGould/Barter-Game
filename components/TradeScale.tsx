@@ -1,6 +1,7 @@
 
   import React, { useRef } from 'react';
   import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { CLAMPED_WIDTH } from '../normalize';
   import { ResourceType } from '../App';
   import { resourceIcons } from '../resourceRegistry';
@@ -20,9 +21,9 @@
   const PAN_HEIGHT = PAN_WIDTH / PAN_ASPECT;
 
 
-  //components that check for outdated press/holds
-  const heldRemoveResourceRef = { current: null as ResourceType | null };
-  const removeHoldIntervalRef = { current: null as NodeJS.Timeout | null };
+//components that check for outdated press/holds
+const heldRemoveResourceRef = { current: null as ResourceType | null };
+const removeHoldIntervalRef = { current: null as null | (() => void) }; 
   //hold acceleration
   const REMOVE_BASE_MS = 150;
   const removeDelayRef = { current: REMOVE_BASE_MS };
@@ -83,23 +84,25 @@ type TradeScaleProps = {
     const rightPanRef = React.useRef<View>(null);
     // After render, measure the left pan's screen position
     React.useEffect(() => {
-      if (leftPanRef.current && onLeftPanMeasured) {
-        leftPanRef.current.measureInWindow((x, y, width, height) => {
-          onLeftPanMeasured({
-            x: x + width / 2,
-            y: y + height / 2,
+      nextFrame(() => {
+        if (leftPanRef.current && onLeftPanMeasured) {
+          leftPanRef.current.measureInWindow((x, y, width, height) => {
+            onLeftPanMeasured({
+              x: x + width / 2,
+              y: y + height / 2,
+            });
           });
-        });
-      }
+        }
 
-      if (rightPanRef.current && onRightPanMeasured) {
-        rightPanRef.current.measureInWindow((x, y, width, height) => {
-          onRightPanMeasured({
-            x: x + width / 2,
-            y: y + height / 2,
+        if (rightPanRef.current && onRightPanMeasured) {
+          rightPanRef.current.measureInWindow((x, y, width, height) => {
+            onRightPanMeasured({
+              x: x + width / 2,
+              y: y + height / 2,
+            });
           });
-        });
-      }
+        }
+      });
       // No cleanup here — allow hold-to-remove to continue across re-renders/rotation changes.
     }, [rotation, onLeftPanMeasured, onRightPanMeasured]);
     
@@ -109,7 +112,7 @@ type TradeScaleProps = {
     React.useEffect(() => {
       // mount: clear any leftover interval
       if (removeHoldIntervalRef.current) {
-        clearInterval(removeHoldIntervalRef.current);
+        removeHoldIntervalRef.current();
         removeHoldIntervalRef.current = null;
       }
       heldRemoveResourceRef.current = null;
@@ -118,11 +121,12 @@ type TradeScaleProps = {
       return () => {
         heldRemoveResourceRef.current = null;
         if (removeHoldIntervalRef.current) {
-          clearInterval(removeHoldIntervalRef.current);
+          removeHoldIntervalRef.current();
           removeHoldIntervalRef.current = null;
         }
       };
     }, []);
+    
     
 
     // The beam rotates around this pivot Y
@@ -164,62 +168,70 @@ type TradeScaleProps = {
           const Wrapper = onRemoveItem ? TouchableOpacity : View;
           const wrapperProps = onRemoveItem
             ? {
+              activeOpacity: 0.7,
+              delayPressIn: 0,
+              delayLongPress: 0,
+
               onPressIn: () => {
                 // Mark which resource is being removed during this hold.
                 heldRemoveResourceRef.current = res;
-              
+
                 const doRemove = () => {
                   if (heldRemoveResourceRef.current === res) {
                     onRemoveItem(res);
                   }
                 };
-              
+
                 // First removal happens instantly on press-in.
                 doRemove();
                 removeCountRef.current = 1;
                 removeDelayRef.current = REMOVE_BASE_MS;
-              
+
                 // If a previous timer is around, clear it (defensive).
                 if (removeHoldIntervalRef.current) {
-                  clearInterval(removeHoldIntervalRef.current);
+                  removeHoldIntervalRef.current();
                   removeHoldIntervalRef.current = null;
                 }
-              
-                // Like the add side: shrink delay by 10% after the 3rd item, floor at 10% of base.
+
+                // Like the add side: shrink delay by 10% after the 3rd item, floor at 35% of base.
                 const tick = () => {
                   if (heldRemoveResourceRef.current !== res) return;
-              
+
                   doRemove();
                   removeCountRef.current += 1;
-              
+
                   if (removeCountRef.current >= 3) {
                     const minDelay = REMOVE_BASE_MS * 0.35;
-                    const next = Math.max(minDelay, removeDelayRef.current * 0.90 );
+                    const next = Math.max(minDelay, removeDelayRef.current * 0.90);
                     if (next !== removeDelayRef.current) {
                       removeDelayRef.current = next;
-                      clearInterval(removeHoldIntervalRef.current!);
-                      removeHoldIntervalRef.current = setInterval(tick, removeDelayRef.current);
-                      return;
+                      // (frame loop continues; dynamic interval is read each tick)
                     }
                   }
                 };
-              
-                removeHoldIntervalRef.current = setInterval(tick, removeDelayRef.current);
+
+                // Pass a getter so the loop reads the latest removeDelayRef.current
+                removeHoldIntervalRef.current = startFrameLoop(() => removeDelayRef.current, () => {
+                  if (heldRemoveResourceRef.current !== res) return false;
+                  tick();
+                  return true;
+                });
               },
-              
+
               onPressOut: () => {
                 // Stop the touch interaction + timer and reset adaptive counters.
                 heldRemoveResourceRef.current = null;
                 if (removeHoldIntervalRef.current) {
-                  clearInterval(removeHoldIntervalRef.current);
+                  removeHoldIntervalRef.current();
                   removeHoldIntervalRef.current = null;
                 }
+
                 removeCountRef.current = 0;
                 removeDelayRef.current = REMOVE_BASE_MS;
               },
-              
             }
             : {};
+        
 
           return (
             <Wrapper
@@ -313,14 +325,14 @@ type TradeScaleProps = {
       </View>
     );
   };
-  export const cancelAllScaleRemovals = () => {
-    heldRemoveResourceRef.current = null;
-    if (removeHoldIntervalRef.current) {
-      clearInterval(removeHoldIntervalRef.current);
-      removeHoldIntervalRef.current = null;
-    }
-  };
-
+export const cancelAllScaleRemovals = () => {
+  heldRemoveResourceRef.current = null;
+  if (removeHoldIntervalRef.current) {
+    removeHoldIntervalRef.current(); // cancel frame loop
+    removeHoldIntervalRef.current = null;
+  }
+};
+  
   //
   // --- STYLES ---
   //
