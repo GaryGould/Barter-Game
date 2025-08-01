@@ -804,8 +804,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                     { x: startX, y: startY },
                     {
                       onCaught: () => {
-                        // small feedback
-                        flyingRef.current?.riseLabel('caught it!', { x: startX, y: startY }, 70, 900, 400);
+                        // handled inside FlyingResourceManager at the exact tap point
                       },
                       onMiss: () => {
                         // If they miss, use existing break flow to remove 1 & show popup
@@ -814,6 +813,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                     }
                   );
                 });
+                
               }
               // --- End catch-the-pot ---
 

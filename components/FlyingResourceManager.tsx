@@ -86,6 +86,36 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
     const [catchables, setCatchables] = useState<CatchableDrop[]>([]);
     const screenH = Dimensions.get('window').height;
 
+    // helper: rising + fading label
+    const spawnRisingLabel = (
+        text: string,
+        start: { x: number; y: number },
+        risePx = 80,
+        durationMs = 1400,
+        fadeDelayMs = 600
+    ) => {
+        const id = idRef.current++;
+        const anim = new Animated.ValueXY({ x: start.x, y: start.y });
+        const target = { x: start.x, y: start.y - risePx };
+        const opacity = new Animated.Value(1);
+        const label: FloatingLabel = { id, text, anim, opacity };
+        setLabels(prev => [...prev, label]);
+
+        Animated.parallel([
+            Animated.timing(anim, { toValue: target, duration: durationMs, useNativeDriver: true }),
+            Animated.sequence([
+                Animated.delay(fadeDelayMs),
+                Animated.timing(opacity, {
+                    toValue: 0,
+                    duration: Math.max(300, durationMs - fadeDelayMs),
+                    useNativeDriver: true,
+                }),
+            ]),
+        ]).start(() => {
+            setLabels(prev => prev.filter(l => l.id !== id));
+        });
+    };
+
     useImperativeHandle(ref, () => ({
         fly(name, start, end) {
             const id = idRef.current++;
@@ -186,12 +216,18 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const y = new Animated.Value(start.y);
             const opacity = new Animated.Value(1);
 
-            // Horizontal displacement: random slight left/right push
-            const dx = (Math.random() < 0.5 ? -1 : 1) * (80 + Math.random() * 60);
+            // show prompt at spawn
+            const CATCH_LABEL_LEFT_PX = 56; // how far left of the spawn point
+            spawnRisingLabel('Catch!', { x: start.x - CATCH_LABEL_LEFT_PX, y: start.y }, 70, 900, 350);
+
+            // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 1.6s)
+            const MIN_SPEED = 140; // px/s
+            const MAX_SPEED = 220; // px/s
+            const dx = -(MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED)) * 1.6; // total px over 1.6s
+
             // How high it arcs upward before falling
-            const arcHeight = 80 + Math.random() * 40;
-            // Ensure it ends below the screen (so we can treat end as a "miss" if not caught)
-            const fallEnd = screenH + 60;
+            const arcHeight = 120 + Math.random() * 40;
+              const fallEnd = screenH + 60;
 
             const progress = new Animated.Value(0);
             let stopped = false;
@@ -315,26 +351,26 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 >
                     <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={() => {
+                        onPress={(e) => {
                             // caught!
                             stop?.();
                             // tiny feedback: pop up a label from catch point
                             const cx = (x as any).__getValue?.() ?? 0;
                             const cy = (y as any).__getValue?.() ?? 0;
                             // (non-blocking visual)
-                            setTimeout(() => {
-                                // safe fallback if __getValue isn't there
-                                const startPos = { x: cx || 0, y: cy || 0 };
-                                // reuse existing label method
-                                // (rise quickly then fade)
-                                // @ts-ignore - we are inside the manager, call directly
-                                // Using the exposed API via ref is fine from App; here we inline:
-                            }, 0);
+                            // absolute touch point in REAL SCREEN SPACE
+                            const tapX = e.nativeEvent.pageX;
+                            const tapY = e.nativeEvent.pageY;
+                            // feedback exactly at the touch point
+                            spawnRisingLabel('caught it!', { x: tapX, y: tapY }, 70, 900, 300);
                             onCaught?.();
                         }}
                         style={{ padding: 6 }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
+
+                
+
                         <Image
                             source={resourceIcons[name]}
                             style={{ width: 58, height: 58 }}
