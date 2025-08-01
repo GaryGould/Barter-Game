@@ -1,6 +1,6 @@
 // components/FlyingResourceManager.tsx
 import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react';
-import { Animated, Image, View, StyleSheet, Text } from 'react-native';
+import { Animated, Image, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing } from 'react-native';
 import { ResourceType } from '../App';
 
 const resourceIcons: Record<ResourceType, any> = {
@@ -28,6 +28,18 @@ type FloatingLabel = {
     opacity: Animated.Value;
 };
 
+
+type CatchableDrop = {
+    id: number;
+    name: ResourceType;                 // 'pottery'
+    x: Animated.Value;                  // animated X position
+    y: Animated.Value;                  // animated Y position
+    opacity: Animated.Value;
+    onCaught?: () => void;
+    onMiss?: () => void;
+    stop?: () => void;                  // cancels animation
+};
+
 export type FlyingResourceManagerHandle = {
     fly: (
         name: ResourceType,
@@ -41,7 +53,7 @@ export type FlyingResourceManagerHandle = {
         risePx?: number,
         durationMs?: number
     ) => void;
-    fallAndFade: ( 
+    fallAndFade: (
         name: ResourceType,
         start: { x: number; y: number },
         fallPx?: number,
@@ -56,7 +68,13 @@ export type FlyingResourceManagerHandle = {
         lingerMs?: number,
         onComplete?: () => void
     ) => void;
+
+    dropCatchablePottery: (
+        start: { x: number; y: number },
+        opts?: { onCaught?: () => void; onMiss?: () => void }
+    ) => void;
 };
+
   
 
 
@@ -65,6 +83,8 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
     const [flying, setFlying] = useState<FlyingResource[]>([]);   // <-- add this
     const [labels, setLabels] = useState<FloatingLabel[]>([]);
     const idRef = useRef(0);
+    const [catchables, setCatchables] = useState<CatchableDrop[]>([]);
+    const screenH = Dimensions.get('window').height;
 
     useImperativeHandle(ref, () => ({
         fly(name, start, end) {
@@ -160,6 +180,75 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 if (finished && onComplete) onComplete();
             });
         },
+        dropCatchablePottery(start, opts) {
+            const id = idRef.current++;
+            const x = new Animated.Value(start.x);
+            const y = new Animated.Value(start.y);
+            const opacity = new Animated.Value(1);
+
+            // Horizontal displacement: random slight left/right push
+            const dx = (Math.random() < 0.5 ? -1 : 1) * (80 + Math.random() * 60);
+            // How high it arcs upward before falling
+            const arcHeight = 80 + Math.random() * 40;
+            // Ensure it ends below the screen (so we can treat end as a "miss" if not caught)
+            const fallEnd = screenH + 60;
+
+            const progress = new Animated.Value(0);
+            let stopped = false;
+
+            const listenerId = progress.addListener(({ value: t }) => {
+                // Parabolic arc up: -arcHeight * 4t(1-t); Gravity: ease to bottom by t^2
+                // Base y: start.y + gravityPull(t)
+                const arcY = -arcHeight * (4 * t * (1 - t));           // up, then down to 0
+                const gravityY = (fallEnd - start.y) * (t * t);        // accelerates down
+                const posY = start.y + arcY + gravityY;
+
+                const posX = start.x + dx * t;
+                x.setValue(posX);
+                y.setValue(posY);
+
+                // Ground hit
+                if (!stopped && posY >= screenH - 20) {
+                    stopped = true;
+                    progress.stopAnimation();
+                    opacity.setValue(0);
+                    setCatchables(prev => prev.filter(c => c.id !== id));
+                    opts?.onMiss?.();
+                }
+            });
+
+            const stop = () => {
+                if (stopped) return;
+                stopped = true;
+                progress.stopAnimation();
+                progress.removeListener(listenerId);
+                opacity.setValue(0);
+                setCatchables(prev => prev.filter(c => c.id !== id));
+            };
+
+            setCatchables(prev => [
+                ...prev,
+                { id, name: 'pottery', x, y, opacity, onCaught: opts?.onCaught, onMiss: opts?.onMiss, stop }
+            ]);
+
+            Animated.timing(progress, {
+                toValue: 1,
+                duration: 1600,
+                easing: Easing.linear,
+                useNativeDriver: false,  // JS driver to compute parabola
+            }).start(({ finished }) => {
+                progress.removeListener(listenerId);
+                if (!finished) return; // already handled by ground hit or catch
+                // If it simply completed (rare), treat as miss for safety
+                if (!stopped) {
+                    stopped = true;
+                    opacity.setValue(0);
+                    setCatchables(prev => prev.filter(c => c.id !== id));
+                    opts?.onMiss?.();
+                }
+            });
+        },
+
 
     }));
     
@@ -211,6 +300,47 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                     pointerEvents="none"
                 >
                     <Text style={{ color: 'black', fontWeight: 'bold' }}>{text}</Text>
+                </Animated.View>
+            ))}
+            {catchables.map(({ id, name, x, y, opacity, onCaught, stop }) => (
+                <Animated.View
+                    key={`catch-${id}`}
+                    style={[
+                        {
+                            position: 'absolute',
+                            transform: [{ translateX: x }, { translateY: y }],
+                            opacity,
+                        },
+                    ]}
+                >
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                            // caught!
+                            stop?.();
+                            // tiny feedback: pop up a label from catch point
+                            const cx = (x as any).__getValue?.() ?? 0;
+                            const cy = (y as any).__getValue?.() ?? 0;
+                            // (non-blocking visual)
+                            setTimeout(() => {
+                                // safe fallback if __getValue isn't there
+                                const startPos = { x: cx || 0, y: cy || 0 };
+                                // reuse existing label method
+                                // (rise quickly then fade)
+                                // @ts-ignore - we are inside the manager, call directly
+                                // Using the exposed API via ref is fine from App; here we inline:
+                            }, 0);
+                            onCaught?.();
+                        }}
+                        style={{ padding: 6 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <Image
+                            source={resourceIcons[name]}
+                            style={{ width: 58, height: 58 }}
+                            resizeMode="contain"
+                        />
+                    </TouchableOpacity>
                 </Animated.View>
             ))}
 

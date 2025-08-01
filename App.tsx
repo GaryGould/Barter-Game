@@ -706,6 +706,7 @@ export default function App() {
       dislikes,
       unitValues,
     });
+
   };
   
 
@@ -791,6 +792,31 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 setAppleTimer(1); // reset pie to full if we just gained apples after having 0
               }
 
+              // --- Catch-the-pot: only for ACCEPTED trades where TRADER gives pottery ---
+              if (trade.give === 'pottery' && Math.random() < 1) {
+                // Prefer to start from the NPC (right) pan if we have it
+                const rp = rightPanPositionRef.current || rightPanPosition;
+                const startX = rp ? rp.x + (Math.random() - 0.5) * 60 : (width / 2 + (Math.random() - 0.5) * 120);
+                const startY = rp ? rp.y - 80 : Math.min(140, Math.max(80, height * 0.18));
+
+                nextFrame(() => {
+                  flyingRef.current?.dropCatchablePottery(
+                    { x: startX, y: startY },
+                    {
+                      onCaught: () => {
+                        // small feedback
+                        flyingRef.current?.riseLabel('caught it!', { x: startX, y: startY }, 70, 900, 400);
+                      },
+                      onMiss: () => {
+                        // If they miss, use existing break flow to remove 1 & show popup
+                        handlePotteryBreak();
+                      },
+                    }
+                  );
+                });
+              }
+              // --- End catch-the-pot ---
+
               handleTradeCompleted(trade, playerOffer);
               // Pottery fragility: count pottery-involving trades and break 1 every 3
               tickPotteryFragility(trade, playerOffer, newResources);
@@ -810,6 +836,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
               setPlayerOffer({});
             }, delay);
           });
+
           
         });
       } else {
