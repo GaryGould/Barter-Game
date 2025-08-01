@@ -41,6 +41,12 @@ export type FlyingResourceManagerHandle = {
         risePx?: number,
         durationMs?: number
     ) => void;
+    fallAndFade: ( 
+        name: ResourceType,
+        start: { x: number; y: number },
+        fallPx?: number,
+        durationMs?: number
+    ) => void;
 
     riseLabel: (
         text: string,
@@ -78,7 +84,32 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             });
         },
 
-        // New helper used by apple spoilage visuals
+        // rain items down
+        fallAndFade(name: ResourceType, start: { x: number; y: number }, fallPx = 60, durationMs = 600) {
+            const id = idRef.current++;
+            const anim = new Animated.ValueXY({ x: start.x, y: start.y });
+            const target = { x: start.x, y: start.y + fallPx }; // ↓ mirror movement
+            const opacity = new Animated.Value(1);
+            const newFlying = { id, name, anim, target, opacity };
+            setFlying(prev => [...prev, newFlying]);
+
+            Animated.parallel([
+                Animated.timing(anim, {
+                    toValue: target,
+                    duration: durationMs,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(opacity, {
+                    toValue: 0,
+                    duration: durationMs,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => {
+                setFlying(prev => prev.filter(f => f.id !== id));
+            });
+        },
+
+        // items rise up and fade out
         riseAndFade(name, start, risePx = 60, durationMs = 600) {
             const id = idRef.current++;
             const anim = new Animated.ValueXY({ x: start.x, y: start.y });

@@ -384,8 +384,8 @@ export default function App() {
 
       for (let i = 0; i < visuals; i++) {
         const jitterX = (Math.random() - 0.5) * 30;   // small horizontal variety
-        const risePx = 120 + Math.random() * 30;       // vary rise distance a bit
-        const duration = 750 + Math.random() * 200;   // vary duration a bit
+        const risePx = 150 + Math.random() * 60;       // vary rise distance a bit
+        const duration = 1600 + Math.random() * 100;   // vary duration a bit
         nextFrame(() => setTimeout(() => {
           flyingRef.current?.riseAndFade(
             'apples',
@@ -401,7 +401,7 @@ export default function App() {
       enqueueEventPopup({
         resource: 'apples',
         amount: loss,
-        message: `${loss}`,
+        message: `apples spoiled`,
       });
             setFreezeApplePieAtZero(false);
       setPieShouldInstantJumpToOne(false);
@@ -430,8 +430,8 @@ export default function App() {
           const POTTERY_X_SHIFT = -30; // match apples' fixed horizontal shift
           const iconStart = { x: x + w / 2 + POTTERY_X_SHIFT, y: y  };
 
-          const risePx = 140;   // single visual
-          const duration = 2000; // fixed duration
+          const risePx = 160;   // single visual
+          const duration = 2500; // fixed duration
 
           // Defer to next frame to avoid setState during App render
           nextFrame(() => {
@@ -441,7 +441,7 @@ export default function App() {
             enqueueEventPopup({
               resource: 'pottery',
               amount: 1,
-              message: `1`,
+              message: `pottery broke`,
             });
           });
           
@@ -634,6 +634,8 @@ export default function App() {
   const [worldEventText, setWorldEventText] = useState<string>('');
   const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
   const [recentlyOfferedGoods, setRecentlyOfferedGoods] = useState<ResourceType[]>([]);
+  const rejectedTradeCountRef = useRef(0);
+  const shellEventTriggeredRef = useRef(false);
 
   const [specialNpcSpawnedFirstTime, setSpecialNpcSpawnedFirstTime] = useState(false);
   type GameEventType = 'victory' | 'loss' | 'tutorial' | null;
@@ -643,8 +645,12 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
 
   // --- Universal event popup queue ---
-  type EventPopupData = { resource: ResourceType; amount: number; message: string };
-  const [eventQueue, setEventQueue] = useState<EventPopupData[]>([]);
+  type EventPopupData = {
+    resource: ResourceType;
+    message: string;
+    amount?: number | null; // optional number
+  };
+    const [eventQueue, setEventQueue] = useState<EventPopupData[]>([]);
   const [activeEvent, setActiveEvent] = useState<EventPopupData | null>(null);
 
 
@@ -939,7 +945,14 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
       return updatedResources;
     });
   }
-  
+  // Track declines for shell beach event
+  if (!shellEventTriggeredRef.current) {
+    rejectedTradeCountRef.current += 1;
+    if (rejectedTradeCountRef.current >= 5) {
+      shellEventTriggeredRef.current = true;
+      triggerShellBeachEvent();
+    }
+  }
   
   // Wait ~600ms to let flying animations finish before unmounting the modal
     setSelectedNpcIndex(null);
@@ -1242,7 +1255,39 @@ const renderNpcRow = () => (
     specialNpcRequestRef.current = requestAnimationFrame(animate);
   };
   
-  
+  const triggerShellBeachEvent = React.useCallback(() => {
+    // 1. Halve all shell values
+    editablePointRanges.shells.favored = editablePointRanges.shells.favored.map(v => v / 2) as [number, number];
+    editablePointRanges.shells.neutral = editablePointRanges.shells.neutral.map(v => v / 2) as [number, number];
+    editablePointRanges.shells.disliked = editablePointRanges.shells.disliked.map(v => v / 2) as [number, number];
+
+    // 2. Queue the popup message
+    enqueueEventPopup({
+      resource: 'shells',
+      message: 'washed up on the beach, decreasing their value by half!',
+      amount: null, // no number
+    });
+
+    // 3. Visual: Shell rain
+    const screenWidth = width;
+    const drops = 12; // number of shells
+    for (let i = 0; i < drops; i++) {
+      const startX = Math.random() * screenWidth;
+      const startY = -50 - Math.random() * 150; // start slightly above screen
+      const distance = height + 100; // fall past the bottom
+      const duration = 2000 + Math.random() * 500;
+
+      nextFrame(() => setTimeout(() => {
+        flyingRef.current?.fallAndFade(
+          'shells',
+          { x: startX, y: startY },
+          distance,
+          duration
+        );
+      }, i * 100)); // slight stagger for rain effect
+    }
+  }, [width, height]);
+
   
   const triggerWorldEvent = () => {
 
@@ -1282,7 +1327,7 @@ const renderNpcRow = () => (
           editablePointRanges.shells.disliked[0] * 0.75,
           editablePointRanges.shells.disliked[1] * 0.75,
         ];
-        setWorldEventText('Storm washes up seashells, prices go down');
+        setWorldEventText('Many seashells wash up on shore, prices go down');
       },
       () => {
         const currentPottery = resources.pottery || 0;
@@ -1366,7 +1411,7 @@ const renderNpcRow = () => (
     });
   }, []);
 
-  // --- Popup Renderer ---  // NEW
+  // --- Popup Renderer --- 
   const renderEventPopup = () => {
     if (!activeEvent) return null;
     const { resource, amount, message } = activeEvent;
@@ -1392,17 +1437,28 @@ const renderNpcRow = () => (
             borderColor: '#ccc',
           }}
         >
-          {/* Message + Icon + Suffix */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <Text style={{ fontSize: 18, color: '#333', marginRight: 6 }}>{message}</Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}
+          >
+            {amount != null && (
+              <Text style={{ fontSize: 18, color: '#333', marginRight: 6 }}>
+                {amount}
+              </Text>
+            )}
             <Image
               source={resourceIcons[resource]}
-              style={{ width: 28, height: 28, marginRight: 6 }}
+              style={{ width: 28, height: 28, marginRight: message ? 6 : 0 }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: 18, color: '#333' }}>
-              {resource === 'pottery' ? 'broke while trading' : 'spoiled'}
-            </Text>
+            {message && (
+              <Text style={{ fontSize: 18, color: '#333', textAlign: 'center' }}>
+                {message}
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
@@ -1420,6 +1476,7 @@ const renderNpcRow = () => (
       </View>
     );
   };
+  
   
 
   // --- Intro overlay ---
