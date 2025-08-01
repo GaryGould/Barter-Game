@@ -350,6 +350,7 @@ export default function App() {
   const [potteryTradeCount, setPotteryTradeCount] = useState(0);
   const [pendingPotteryBreak, setPendingPotteryBreak] = useState(false);
 
+  
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
   const handleAppleSpoilage = React.useCallback(() => {
     const invRef = inventoryRefs.current.apples;
@@ -396,20 +397,14 @@ export default function App() {
       }
       
 
-      // white text bubble rises when apples spoil (centered X)
-      nextFrame(() => {
-        flyingRef.current?.riseLabel(
-          `${loss} apples spoiled`,
-          labelStart,
-          80,
-          2200,
-          1800,
-          () => {
-            setFreezeApplePieAtZero(false);
-            setPieShouldInstantJumpToOne(false);
-          }
-        );
+      // Event popup apples spoil
+      enqueueEventPopup({
+        resource: 'apples',
+        amount: loss,
+        message: `${loss}`,
       });
+            setFreezeApplePieAtZero(false);
+      setPieShouldInstantJumpToOne(false);
       
 
     });
@@ -443,13 +438,11 @@ export default function App() {
             flyingRef.current?.riseAndFade('pottery', iconStart, risePx, duration);
 
             const labelStart = { x: x, y: y + h / 2 };
-            flyingRef.current?.riseLabel(
-              '1 pottery broke',
-              labelStart,
-              80,
-              SPOIL_LABEL_RISE_MS,
-              SPOIL_LABEL_LINGER_MS
-            );
+            enqueueEventPopup({
+              resource: 'pottery',
+              amount: 1,
+              message: `1`,
+            });
           });
           
         });
@@ -648,6 +641,12 @@ export default function App() {
   
   // --- Intro overlay ---
   const [showIntro, setShowIntro] = useState(true);
+
+  // --- Universal event popup queue ---
+  type EventPopupData = { resource: ResourceType; amount: number; message: string };
+  const [eventQueue, setEventQueue] = useState<EventPopupData[]>([]);
+  const [activeEvent, setActiveEvent] = useState<EventPopupData | null>(null);
+
 
   // Called when player taps on an NPC to initiate trade
   const handleNpcPress = (index: number) => {
@@ -1320,6 +1319,7 @@ const renderNpcRow = () => (
     }, 6000);
   };
   
+
   
 
   const renderGameEventOverlay = () => {
@@ -1343,6 +1343,84 @@ const renderNpcRow = () => (
 
     return null;
   };
+
+  // --- Universal Event Popup Queue Handlers ---  // NEW
+  const enqueueEventPopup = React.useCallback((data: EventPopupData) => {
+    setEventQueue(prev => {
+      const newQueue = [...prev, data];
+      // Start immediately if none active
+      if (!activeEvent) setActiveEvent(newQueue[0]);
+      return newQueue;
+    });
+  }, [activeEvent]);
+
+  const handleCloseEvent = React.useCallback(() => {
+    setEventQueue(prev => {
+      const [, ...rest] = prev;
+      if (rest.length > 0) {
+        setActiveEvent(rest[0]);
+      } else {
+        setActiveEvent(null);
+      }
+      return rest;
+    });
+  }, []);
+
+  // --- Popup Renderer ---  // NEW
+  const renderEventPopup = () => {
+    if (!activeEvent) return null;
+    const { resource, amount, message } = activeEvent;
+
+    return (
+      <View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        pointerEvents="auto"
+      >
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: 16,
+            padding: 24,
+            alignItems: 'center',
+            maxWidth: 320,
+            borderWidth: 1,
+            borderColor: '#ccc',
+          }}
+        >
+          {/* Message + Icon + Suffix */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ fontSize: 18, color: '#333', marginRight: 6 }}>{message}</Text>
+            <Image
+              source={resourceIcons[resource]}
+              style={{ width: 28, height: 28, marginRight: 6 }}
+              resizeMode="contain"
+            />
+            <Text style={{ fontSize: 18, color: '#333' }}>
+              {resource === 'pottery' ? 'broke while trading' : 'spoiled'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#2ecc71',
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              borderRadius: 10,
+            }}
+            onPress={handleCloseEvent}
+          >
+            <Text style={{ color: '#0b2b13', fontWeight: '700' }}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+  
 
   // --- Intro overlay ---
   const renderIntroOverlay = () => {
@@ -1578,6 +1656,7 @@ const renderNpcRow = () => (
         />
       </>
     )}
+      {renderEventPopup()}
     {renderGameEventOverlay()}
   </View>
 );
