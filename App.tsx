@@ -149,7 +149,7 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 };
 
 
-
+const SHELL_TRADE_INTERVAL = 7;
 const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; animate?: boolean; onDepleted?: () => void }) => {
   const radius = 12;
   // Pulse animation state (scale) 
@@ -503,7 +503,7 @@ export default function App() {
 
       const applyDecrement = () => {
         setAppleTimer(prev => {
-          const next = Math.max(0, prev - 0.25);
+          const next = Math.max(0, prev - 0.20);
           if (prev > 0 && next === 0 && !hasSpoilageTriggered) {
             setHasSpoilageTriggered(true);
           }
@@ -794,8 +794,14 @@ export default function App() {
   };
   
   
-const handleOptionSelect = (option: 'buy' | 'decline') => {
-  const appleCountBefore = resources.apples;
+  const handleOptionSelect = (option: 'buy' | 'decline') => {
+    // Count this trade for shell cadence
+    totalTradesRef.current += 1;
+    if (totalTradesRef.current % SHELL_TRADE_INTERVAL === 0) {
+      shellDueRef.current = true;
+    }
+
+    const appleCountBefore = resources.apples;
 
   if (selectedNpcIndex === null) return;
   const isSpecialNpc = selectedNpcIndex === -999;
@@ -869,16 +875,15 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 }
                 : undefined;
 
-              // Define shell request (priority #3): only if a shell is DUE
+              // Define shell request (priority #3): only if a shell is DUE, defer on the triggering trade
               const requestShellNow = shellDueRef.current
+                && (totalTradesRef.current % SHELL_TRADE_INTERVAL !== 0)
                 ? () => {
-                  shellDueRef.current = false; // consume the due shell
+                  shellDueRef.current = false;
                   triggerShellBeachEvent();
                 }
                 : undefined;
-  
 
-              // Resolve priorities (fires at most one)
               resolveTradeEvents({
                 accepted: true,
                 npcGivesPottery: trade.give === 'pottery',
@@ -886,6 +891,8 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 startPotteryDrop,
                 requestShellNow,
               });
+                
+  
 
               // Always perform normal post-trade bookkeeping
               handleTradeCompleted(trade, playerOffer);
@@ -1048,16 +1055,15 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     const willAppleHitZero =
       hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - 0.25) === 0;
 
-    // Shell may be due; allow it if nothing higher fires
+    // Shell may be due; allow it if nothing higher fires, defer on the triggering trade
     const requestShellNow = shellDueRef.current
+      && (totalTradesRef.current % SHELL_TRADE_INTERVAL !== 0)
       ? () => {
-        shellDueRef.current = false; // consume the due shell
+        shellDueRef.current = false;
         triggerShellBeachEvent();
       }
       : undefined;
-  
 
-    // Fire at most ONE event this trade
     resolveTradeEvents({
       accepted: false,
       npcGivesPottery: false,
@@ -1065,7 +1071,8 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
       startPotteryDrop: undefined,
       requestShellNow,
     });
-
+      
+  
     // Make apples tick on decline too (kept after resolver to preserve the priority decision)
     if (trade) {
       handleTradeCompleted(trade, playerOffer);
@@ -1117,11 +1124,6 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     return newCount;
   });
 
-  // Shell cadence: every 10 trades (accept or decline)
-  totalTradesRef.current += 1;
-  if (totalTradesRef.current % 10 === 0) {
-    shellDueRef.current = true; // mark a shell event as due
-  }
 
   // Reset per-trade event flag for the next interaction  
   tradeEventActiveRef.current = false;
