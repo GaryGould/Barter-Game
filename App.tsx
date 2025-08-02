@@ -415,8 +415,8 @@ export default function App() {
     }));
   }, [resources.apples]);
   // --- Pottery break visuals + inventory decrement ---
-  const handlePotteryBreak = React.useCallback(() => {
-    // If we have no pottery, do nothing (pending break logic will handle later)
+  const handlePotteryBreak = React.useCallback((onClosed?: () => void) => {
+    // If we have no pottery, do nothing
     setResources(prev => {
       const current = prev.pottery || 0;
       if (current <= 0) return prev;
@@ -426,29 +426,28 @@ export default function App() {
       if (invRef && typeof (invRef as any).measureInWindow === 'function') {
         (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
           const POTTERY_X_SHIFT = -30; // match apples' fixed horizontal shift
-          const iconStart = { x: x + w / 2 + POTTERY_X_SHIFT, y: y  };
+          const iconStart = { x: x + w / 2 + POTTERY_X_SHIFT, y: y };
 
           const risePx = 160;   // single visual
           const duration = 2500; // fixed duration
 
-          // Defer to next frame to avoid setState during App render
           nextFrame(() => {
             flyingRef.current?.riseAndFade('pottery', iconStart, risePx, duration);
 
-            const labelStart = { x: x, y: y + h / 2 };
             enqueueEventPopup({
               resource: 'pottery',
               amount: 1,
               message: `pottery broke`,
+              onClose: onClosed, // ⟵ release the lock only AFTER user taps OK
             });
           });
-          
         });
       }
 
       return { ...prev, pottery: Math.max(0, current - 1) };
     });
   }, [width]);
+
 
 
 
@@ -607,9 +606,31 @@ export default function App() {
     resource: ResourceType;
     message: string;
     amount?: number | null; // optional number
+    onClose?: () => void;   // ⟵ NEW: run after user taps OK
   };
-    const [eventQueue, setEventQueue] = useState<EventPopupData[]>([]);
+  const [eventQueue, setEventQueue] = useState<EventPopupData[]>([]);
   const [activeEvent, setActiveEvent] = useState<EventPopupData | null>(null);
+
+  // --- Event gating (ensure only one system event runs at a time) ---
+  const [eventLock, setEventLock] = useState(false);                 // ⟵ NEW
+  const [systemEventQueue, setSystemEventQueue] = useState<(() => void)[]>([]); // ⟵ NEW
+
+  const withEventGate = React.useCallback((fn: () => void) => {      // ⟵ NEW
+    if (eventLock || activeEvent) {
+      setSystemEventQueue(q => [...q, fn]);
+    } else {
+      fn();
+    }
+  }, [eventLock, activeEvent]);
+
+  useEffect(() => {                                                  // ⟵ NEW
+    if (!eventLock && !activeEvent && systemEventQueue.length > 0) {
+      const [next, ...rest] = systemEventQueue;
+      setSystemEventQueue(rest);
+      nextFrame(() => next());
+    }
+  }, [eventLock, activeEvent, systemEventQueue.length]);
+
 
 
   // Called when player taps on an NPC to initiate trade
@@ -752,6 +773,9 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
 
               // --- Catch-the-pot: only for ACCEPTED trades where TRADER gives pottery ---
               if (trade.give === 'pottery' && Math.random() < 1) {
+                // Block other events until this resolves
+                setEventLock(true);
+
                 // Prefer to start from the NPC (right) pan if we have it
                 const rp = rightPanPositionRef.current || rightPanPosition;
                 const startX = rp ? rp.x + (Math.random() - 0.5) * 60 : (width / 2 + (Math.random() - 0.5) * 120);
@@ -762,18 +786,22 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                     { x: startX, y: startY },
                     {
                       onCaught: () => {
-                        // handled inside FlyingResourceManager at the exact tap point
+                        // Release immediately on successful catch
+                        setEventLock(false);
                       },
                       onMiss: () => {
-                        // If they miss, use existing break flow to remove 1 & show popup
-                        handlePotteryBreak();
+                        // On miss, show the "pottery broke" popup and release only after OK
+                        handlePotteryBreak(() => {
+                          setEventLock(false);
+                        });
                       },
                     }
                   );
                 });
-                
+
               }
               // --- End catch-the-pot ---
+
 
               handleTradeCompleted(trade, playerOffer);
               // Pottery fragility: count pottery-involving trades and break 1 every 3
@@ -1115,21 +1143,29 @@ const renderNpcRow = () => (
                           progress={freezeApplePieAtZero ? 0 : appleTimer}
                           animate={!pieShouldInstantJumpToOne}
                           onDepleted={() => {
-                            // 1) Do the spoilage + text visuals.
-                            handleAppleSpoilage();
+                            const run = () => {
+                              // 1) Do the spoilage + text visuals.
+                              handleAppleSpoilage();
 
-                            // 2) Pin the UI at 0 while the text bubble is visible.
-                            setFreezeApplePieAtZero(true);
+                              // 2) Pin the UI at 0 while the text bubble is visible.
+                              setFreezeApplePieAtZero(true);
 
-                            // 3) Prep the next cycle immediately (jump to full while hidden).
-                            setPieShouldInstantJumpToOne(true);
-                            setAppleTimer(1);
-                            setHasSpoilageTriggered(false);
+                              // 3) Prep the next cycle immediately (jump to full while hidden).
+                              setPieShouldInstantJumpToOne(true);
+                              setAppleTimer(1);
+                              setHasSpoilageTriggered(false);
 
-                            // 4) When the text finishes, unfreeze to reveal the full meter.
-                            setTimeout(() => {
-                              setFreezeApplePieAtZero(false);
-                            }, SPOIL_LABEL_RISE_MS + SPOIL_LABEL_LINGER_MS);
+                              // 4) When the text finishes, unfreeze to reveal the full meter.
+                              setTimeout(() => {
+                                setFreezeApplePieAtZero(false);
+                              }, SPOIL_LABEL_RISE_MS + SPOIL_LABEL_LINGER_MS);
+                            };
+
+                            if (eventLock || activeEvent) {
+                              setSystemEventQueue(q => [...q, run]);
+                            } else {
+                              run();
+                            }
                           }}
                         />
 
@@ -1240,37 +1276,40 @@ const renderNpcRow = () => (
   };
   
   const triggerShellBeachEvent = React.useCallback(() => {
-    // 1. Halve all shell values
-    editablePointRanges.shells.favored = editablePointRanges.shells.favored.map(v => v / 2) as [number, number];
-    editablePointRanges.shells.neutral = editablePointRanges.shells.neutral.map(v => v / 2) as [number, number];
-    editablePointRanges.shells.disliked = editablePointRanges.shells.disliked.map(v => v / 2) as [number, number];
+    withEventGate(() => {
+      // 1. Halve all shell values
+      editablePointRanges.shells.favored = editablePointRanges.shells.favored.map(v => v / 2) as [number, number];
+      editablePointRanges.shells.neutral = editablePointRanges.shells.neutral.map(v => v / 2) as [number, number];
+      editablePointRanges.shells.disliked = editablePointRanges.shells.disliked.map(v => v / 2) as [number, number];
 
-    // 2. Queue the popup message
-    enqueueEventPopup({
-      resource: 'shells',
-      message: 'washed up on the beach, decreasing their value by half!',
-      amount: null, // no number
+      // 2. Queue the popup message
+      enqueueEventPopup({
+        resource: 'shells',
+        message: 'washed up on the beach, decreasing their value by half!',
+        amount: null, // no number
+      });
+
+      // 3. Visual: Shell rain
+      const screenWidth = width;
+      const drops = 12; // number of shells
+      for (let i = 0; i < drops; i++) {
+        const startX = Math.random() * screenWidth;
+        const startY = -50 - Math.random() * 150; // start slightly above screen
+        const distance = height + 100; // fall past the bottom
+        const duration = 2000 + Math.random() * 500;
+
+        nextFrame(() => setTimeout(() => {
+          flyingRef.current?.fallAndFade(
+            'shells',
+            { x: startX, y: startY },
+            distance,
+            duration
+          );
+        }, i * 100)); // slight stagger for rain effect
+      }
     });
+  }, [width, height, withEventGate]);
 
-    // 3. Visual: Shell rain
-    const screenWidth = width;
-    const drops = 12; // number of shells
-    for (let i = 0; i < drops; i++) {
-      const startX = Math.random() * screenWidth;
-      const startY = -50 - Math.random() * 150; // start slightly above screen
-      const distance = height + 100; // fall past the bottom
-      const duration = 2000 + Math.random() * 500;
-
-      nextFrame(() => setTimeout(() => {
-        flyingRef.current?.fallAndFade(
-          'shells',
-          { x: startX, y: startY },
-          distance,
-          duration
-        );
-      }, i * 100)); // slight stagger for rain effect
-    }
-  }, [width, height]);
 
   
   const triggerWorldEvent = () => {
@@ -1385,15 +1424,22 @@ const renderNpcRow = () => (
 
   const handleCloseEvent = React.useCallback(() => {
     setEventQueue(prev => {
-      const [, ...rest] = prev;
+      const [closing, ...rest] = prev;
+      // Advance the active popup
       if (rest.length > 0) {
         setActiveEvent(rest[0]);
       } else {
         setActiveEvent(null);
       }
+      // Run closing callback AFTER we’ve advanced
+      if (closing?.onClose) {
+        // Defer a tick so state updates settle
+        nextFrame(() => closing.onClose!());
+      }
       return rest;
     });
   }, []);
+
 
   // --- Popup Renderer --- 
   const renderEventPopup = () => {
