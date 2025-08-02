@@ -1612,25 +1612,30 @@ const renderNpcRow = () => (
           ) : activeEvent.variant === 'shells_beach' ? (
             <View
               style={{
-                flexDirection: 'row',
+                flexDirection: 'column',
                 alignItems: 'center',
                 marginBottom: 16,
-                flexWrap: 'wrap',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 18, color: '#333' }}>
-                a bunch of{' '}
-              </Text>
-              <Image
-                source={resourceIcons['shells']}
-                style={{ width: 28, height: 28, marginHorizontal: 2 }}
-                resizeMode="contain"
-              />
-              <Text style={{ fontSize: 18, color: '#333' }}>
-                {' '}washed up on the beach
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18, color: '#333' }}>
+                  a bunch of{' '}
+                </Text>
+                <Image
+                  source={resourceIcons['shells']}
+                  style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                  resizeMode="contain"
+                />
+                <Text style={{ fontSize: 18, color: '#333' }}>
+                  {' '}washed up on the beach.
+                </Text>
+              </View>
+              <Text style={{ fontSize: 18, color: '#333', marginTop: 4, textAlign: 'center' }}>
+                They are now less valuable.
               </Text>
             </View>
+
           ) : activeEvent.variant === 'apples_spoiled' ? (
             <View
               style={{
