@@ -63,14 +63,19 @@ type Trade = {
   wantAmount: number;
 };
 
-const resourceIcons: Record<ResourceType, any> = {
+// Display-only icons (can include non-inventory visuals)
+type DisplayIcon = ResourceType | 'brokenpottery';
+
+const resourceIcons: Record<DisplayIcon, any> = {
   salt: require('./assets/Icons/Salt.png'),
   apples: require('./assets/Icons/apple.png'),
   tools: require('./assets/Icons/Tools.png'),
   pottery: require('./assets/Icons/pottery.png'),
   shells: require('./assets/Icons/shell.png'),
-  cow: require('./assets/Icons/cow.png')
+  cow: require('./assets/Icons/cow.png'),
+  brokenpottery: require('./assets/Icons/brokenpottery.png'),
 };
+
 
 // --- Warm up (decode) images once so they don't pop in late on first use ---
 const WarmDecoder = React.memo(() => (
@@ -407,7 +412,7 @@ export default function App() {
       enqueueEventPopup({
         resource: 'apples',
         amount: loss,
-        message: `apples spoiled`,
+        variant: 'apples_spoiled',
       });
             setFreezeApplePieAtZero(false);
       setPieShouldInstantJumpToOne(false);
@@ -443,11 +448,12 @@ export default function App() {
             flyingRef.current?.riseAndFade('pottery', iconStart, risePx, duration);
 
             enqueueEventPopup({
-              resource: 'pottery',
-              amount: 1,
-              message: `pottery broke`,
-              onClose: onClosed, // ⟵ release the lock only AFTER user taps OK
+              resource: 'brokenpottery',
+              variant: 'brokenpottery',
+              onClose: onClosed, // release the lock only AFTER user taps OK
             });
+
+
           });
         });
       }
@@ -664,11 +670,13 @@ export default function App() {
 
   // --- Universal event popup queue ---
   type EventPopupData = {
-    resource: ResourceType;
-    message: string;
-    amount?: number | null; // optional number
-    onClose?: () => void;   // ⟵ NEW: run after user taps OK
+    resource: DisplayIcon;
+    amount?: number | null;
+    message?: string;  // optional now (custom variants don't need it)
+    variant?: 'brokenpottery' | 'shells_beach' | 'apples_spoiled';
+    onClose?: () => void;
   };
+
   const [eventQueue, setEventQueue] = useState<EventPopupData[]>([]);
   const [activeEvent, setActiveEvent] = useState<EventPopupData | null>(null);
 
@@ -1399,9 +1407,10 @@ const renderNpcRow = () => (
       // 2. Queue the popup message
       enqueueEventPopup({
         resource: 'shells',
-        message: 'washed up on the beach, decreasing their value!',
-        amount: null, // no number
+        variant: 'shells_beach',
+        amount: null,
       });
+
 
       // 3. Visual: Shell rain
       const screenWidth = width;
@@ -1555,7 +1564,7 @@ const renderNpcRow = () => (
   }, []);
 
 
-  // --- Popup Renderer --- 
+  // --- Popup Renderer ---
   const renderEventPopup = () => {
     if (!activeEvent) return null;
     const { resource, amount, message } = activeEvent;
@@ -1571,39 +1580,103 @@ const renderNpcRow = () => (
         pointerEvents="auto"
       >
         <View
-          style={{
-            backgroundColor: '#fff',
-            borderRadius: 16,
-            padding: 24,
-            alignItems: 'center',
-            maxWidth: 320,
-            borderWidth: 1,
-            borderColor: '#ccc',
-          }}
+          style={[
+            styles.eventPopupCard,
+            { maxWidth: Math.min(width - 32, 420) } 
+          ]}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 16,
-            }}
-          >
-            {amount != null && (
-              <Text style={{ fontSize: 18, color: '#333', marginRight: 6 }}>
-                {amount}
+
+
+          {/* Header content — custom variants first */}
+          {activeEvent.variant === 'brokenpottery' ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 18, color: '#333' }}>
+                a trader dropped one of your{' '}
               </Text>
-            )}
-            <Image
-              source={resourceIcons[resource]}
-              style={{ width: 28, height: 28, marginRight: message ? 6 : 0 }}
-              resizeMode="contain"
-            />
-            {message && (
-              <Text style={{ fontSize: 18, color: '#333', textAlign: 'center' }}>
-                {message}
+              <Image
+                source={resourceIcons['brokenpottery']}
+                style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                resizeMode="contain"
+              />
+            </View>
+          ) : activeEvent.variant === 'shells_beach' ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 18, color: '#333' }}>
+                a bunch of{' '}
               </Text>
-            )}
-          </View>
+              <Image
+                source={resourceIcons['shells']}
+                style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: 18, color: '#333' }}>
+                {' '}washed up on the beach
+              </Text>
+            </View>
+          ) : activeEvent.variant === 'apples_spoiled' ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 18, color: '#333' }}>
+                {amount} of your{' '}
+              </Text>
+              <Image
+                source={resourceIcons['apples']}
+                style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: 18, color: '#333' }}>
+                {' '}spoiled
+              </Text>
+            </View>
+          ) : (
+            // Default layout (unchanged behavior)
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              {amount != null && (
+                <Text style={{ fontSize: 18, color: '#333', marginRight: 6 }}>
+                  {amount}
+                </Text>
+              )}
+              <Image
+                source={resourceIcons[resource]}
+                style={{ width: 28, height: 28, marginRight: message ? 6 : 0 }}
+                resizeMode="contain"
+              />
+              {message && (
+                <Text style={{ fontSize: 18, color: '#333', textAlign: 'center' }}>
+                  {message}
+                </Text>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={{
@@ -1620,6 +1693,7 @@ const renderNpcRow = () => (
       </View>
     );
   };
+  
   
   
 

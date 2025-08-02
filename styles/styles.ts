@@ -138,4 +138,34 @@ resourceRow: {
     color: 'white',
     fontSize: 16,
   },
+  // --- Event popup ---
+  eventPopupCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  eventHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  eventTextLg: {
+    fontSize: 20,
+    lineHeight: 24,
+    color: '#222',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  eventIconLg: {
+    width: 36,
+    height: 36,
+    marginHorizontal: 4,
+  },
+
 });

@@ -216,10 +216,10 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const y = new Animated.Value(start.y);
             const opacity = new Animated.Value(1);
 
-            // show prompt at spawn
-            const CATCH_LABEL_LEFT_PX = 56; // how far left of the spawn point
-            spawnRisingLabel('Catch!', { x: start.x - CATCH_LABEL_LEFT_PX, y: start.y }, 70, 900, 350);
-
+            // show prompt at spawn — horizontally centered on screen
+            const { width: screenW } = Dimensions.get('window');
+            spawnRisingLabel('Catch!', { x: screenW / 2, y: start.y }, 70, 900, 350);
+            
             // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 1.6s)
             const MIN_SPEED = 140; // px/s
             const MAX_SPEED = 220; // px/s
@@ -326,16 +326,25 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             position: 'absolute',
                             transform: anim.getTranslateTransform(),
                             opacity,
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
+                            // Bigger bubble for "Catch!"
+                            paddingHorizontal: text === 'Catch!' ? 16 : 10,
+                            paddingVertical: text === 'Catch!' ? 10 : 6,
                             backgroundColor: 'white',
-                            borderRadius: 12,
+                            borderRadius: 14,
                         },
                         styles.bubbleShadow,
                     ]}
                     pointerEvents="none"
                 >
-                    <Text style={{ color: 'black', fontWeight: 'bold' }}>{text}</Text>
+                    <Text
+                        style={[
+                            { color: 'black', fontWeight: 'bold' },
+                            // Bigger text for "Catch!"
+                            text === 'Catch!' && { fontSize: 24 }
+                        ]}
+                    >
+                        {text}
+                    </Text>
                 </Animated.View>
             ))}
             {catchables.map(({ id, name, x, y, opacity, onCaught, stop }) => (
