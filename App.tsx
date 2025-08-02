@@ -278,6 +278,14 @@ export default function App() {
   const specialNpcAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const worldEventOpacity = useRef(new Animated.Value(0)).current;
   const tradeIntroAnimatedRef = useRef(false);
+  
+  // --- Event priority & queuing (one event per trade) ---
+  const tradeEventActiveRef = useRef(false);     // true once any event has fired this trade
+  const suppressPieOnDepletedOnceRef = useRef(false); // prevent double spoil when handled inline
+  // Shell cadence: every 10 trades (accept or decline)
+  const totalTradesRef = useRef(0);
+  const shellDueRef = useRef(false);             // true when a shell event is due to run
+
 
   //flying item animation
   const flyingRef = useRef<FlyingResourceManagerHandle>(null);
@@ -516,7 +524,62 @@ export default function App() {
     ]
   );
   
-  
+  // Run exactly one event this trade, in priority order.
+  // Returns true if an event fired (so lower priorities must be skipped/queued).
+  const resolveTradeEvents = React.useCallback((
+    opts: {
+      accepted: boolean;
+      npcGivesPottery: boolean;  // true if accepted AND trade.give === 'pottery'
+      willAppleHitZero: boolean; // computed before we mutate appleTimer
+      startPotteryDrop?: () => void; // kicks off the catch mini-event (sets/clears eventLock inside)
+      requestShellNow?: () => void;  // fire shell event immediately
+    }
+  ) => {
+    if (tradeEventActiveRef.current) return true;
+
+    // 1) Apple rot (highest priority)
+    if (opts.willAppleHitZero) {
+      tradeEventActiveRef.current = true;
+
+      // We are handling rot "now", so prevent PieTimer’s onDepleted from double-firing.
+      suppressPieOnDepletedOnceRef.current = true;
+
+      // Inline: replicate the onDepleted visuals/timers
+      handleAppleSpoilage();
+      setFreezeApplePieAtZero(true);
+      setPieShouldInstantJumpToOne(true);
+      setAppleTimer(1);
+      setHasSpoilageTriggered(false);
+      setTimeout(() => {
+        setFreezeApplePieAtZero(false);
+      }, SPOIL_LABEL_RISE_MS + SPOIL_LABEL_LINGER_MS);
+
+
+      return true;
+    }
+
+    // 2) Pottery catch mini-event (only on accepted trades when NPC gives pottery)
+    if (opts.accepted && opts.npcGivesPottery && opts.startPotteryDrop) {
+      tradeEventActiveRef.current = true;
+      opts.startPotteryDrop();
+
+      return true;
+    }
+
+    // 3) Shell event (only if nothing else fired this trade)
+    if (opts.requestShellNow) {
+      tradeEventActiveRef.current = true;
+      opts.requestShellNow();
+      return true;
+    }
+
+    return false;
+  }, [
+    handleAppleSpoilage,
+    SPOIL_LABEL_RISE_MS,
+    SPOIL_LABEL_LINGER_MS
+  ]);
+
   
   
   
@@ -591,8 +654,6 @@ export default function App() {
   const [worldEventText, setWorldEventText] = useState<string>('');
   const [acceptedTradeCount, setAcceptedTradeCount] = useState(0);
   const [recentlyOfferedGoods, setRecentlyOfferedGoods] = useState<ResourceType[]>([]);
-  const rejectedTradeCountRef = useRef(0);
-  const shellEventTriggeredRef = useRef(false);
 
   const [specialNpcSpawnedFirstTime, setSpecialNpcSpawnedFirstTime] = useState(false);
   type GameEventType = 'victory' | 'loss' | 'tutorial' | null;
@@ -771,41 +832,57 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 setAppleTimer(1); // reset pie to full if we just gained apples after having 0
               }
 
-              // --- Catch-the-pot: only for ACCEPTED trades where TRADER gives pottery ---
-              if (trade.give === 'pottery' && Math.random() < 1) {
-                // Block other events until this resolves
-                setEventLock(true);
+              // Compute if the apple timer will hit zero *this* trade (priority #1)
+              const currentPie = freezeApplePieAtZero ? 0 : appleTimer;
+              const willAppleHitZero =
+                hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - 0.25) === 0;
 
-                // Prefer to start from the NPC (right) pan if we have it
-                const rp = rightPanPositionRef.current || rightPanPosition;
-                const startX = rp ? rp.x + (Math.random() - 0.5) * 60 : (width / 2 + (Math.random() - 0.5) * 120);
-                const startY = rp ? rp.y - 80 : Math.min(140, Math.max(80, height * 0.18));
+              // Define pottery starter (priority #2)
+              const startPotteryDrop = (trade.give === 'pottery')
+                ? () => {
+                  setEventLock(true);
+                  const rp = rightPanPositionRef.current || rightPanPosition;
+                  const startX = rp ? rp.x + (Math.random() - 0.5) * 60 : (width / 2 + (Math.random() - 0.5) * 120);
+                  const startY = rp ? rp.y - 80 : Math.min(140, Math.max(80, height * 0.18));
+                  nextFrame(() => {
+                    flyingRef.current?.dropCatchablePottery(
+                      { x: startX, y: startY },
+                      {
+                        onCaught: () => {
+                          setEventLock(false);        // release immediately on catch
+                        },
+                        onMiss: () => {
+                          // Release only after player taps OK on the break popup
+                          handlePotteryBreak(() => setEventLock(false));
+                        },
+                      }
+                    );
+                  });
+                }
+                : undefined;
 
-                nextFrame(() => {
-                  flyingRef.current?.dropCatchablePottery(
-                    { x: startX, y: startY },
-                    {
-                      onCaught: () => {
-                        // Release immediately on successful catch
-                        setEventLock(false);
-                      },
-                      onMiss: () => {
-                        // On miss, show the "pottery broke" popup and release only after OK
-                        handlePotteryBreak(() => {
-                          setEventLock(false);
-                        });
-                      },
-                    }
-                  );
-                });
+              // Define shell request (priority #3): only if a shell is DUE
+              const requestShellNow = shellDueRef.current
+                ? () => {
+                  shellDueRef.current = false; // consume the due shell
+                  triggerShellBeachEvent();
+                }
+                : undefined;
+  
 
-              }
-              // --- End catch-the-pot ---
+              // Resolve priorities (fires at most one)
+              resolveTradeEvents({
+                accepted: true,
+                npcGivesPottery: trade.give === 'pottery',
+                willAppleHitZero,
+                startPotteryDrop,
+                requestShellNow,
+              });
 
-
+              // Always perform normal post-trade bookkeeping
               handleTradeCompleted(trade, playerOffer);
-              // Pottery fragility: count pottery-involving trades and break 1 every 3
               setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
+
 
               if (trade.give === 'cow') {
                 setGameEvent('victory');
@@ -956,15 +1033,39 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
       }
       return updatedResources;
     });
-  }
-  // Track declines for shell beach event
-  if (!shellEventTriggeredRef.current) {
-    rejectedTradeCountRef.current += 1;
-    if (rejectedTradeCountRef.current >= 5) {
-      shellEventTriggeredRef.current = true;
-      triggerShellBeachEvent();
+
+    // --- PRIORITY RESOLUTION ON DECLINE (Apple → Pottery → Shell) ---
+    // Compute whether this tick would bring apples to 0 (highest priority)
+    const currentPie = freezeApplePieAtZero ? 0 : appleTimer;
+    const willAppleHitZero =
+      hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - 0.25) === 0;
+
+    // Shell may be due; allow it if nothing higher fires
+    const requestShellNow = shellDueRef.current
+      ? () => {
+        shellDueRef.current = false; // consume the due shell
+        triggerShellBeachEvent();
+      }
+      : undefined;
+  
+
+    // Fire at most ONE event this trade
+    resolveTradeEvents({
+      accepted: false,
+      npcGivesPottery: false,
+      willAppleHitZero,
+      startPotteryDrop: undefined,
+      requestShellNow,
+    });
+
+    // Make apples tick on decline too (kept after resolver to preserve the priority decision)
+    if (trade) {
+      handleTradeCompleted(trade, playerOffer);
     }
   }
+
+
+
   
   // Wait ~600ms to let flying animations finish before unmounting the modal
     setSelectedNpcIndex(null);
@@ -1007,8 +1108,20 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     }
     return newCount;
   });
+
+  // Shell cadence: every 10 trades (accept or decline)
+  totalTradesRef.current += 1;
+  if (totalTradesRef.current % 10 === 0) {
+    shellDueRef.current = true; // mark a shell event as due
+  }
+
+  // Reset per-trade event flag for the next interaction  
+  tradeEventActiveRef.current = false;
+
   
-  
+
+  // Reset per-trade event flag for the next interaction  
+  tradeEventActiveRef.current = false;
 };
 
 
@@ -1143,19 +1256,19 @@ const renderNpcRow = () => (
                           progress={freezeApplePieAtZero ? 0 : appleTimer}
                           animate={!pieShouldInstantJumpToOne}
                           onDepleted={() => {
+                            // If we already handled rot inline for this trade, skip this one frame.
+                            if (suppressPieOnDepletedOnceRef.current) {
+                              suppressPieOnDepletedOnceRef.current = false;
+                              return;
+                            }
+
+                            // (Normal path) Run spoilage as a standalone event, but still respect global gating if used.
                             const run = () => {
-                              // 1) Do the spoilage + text visuals.
                               handleAppleSpoilage();
-
-                              // 2) Pin the UI at 0 while the text bubble is visible.
                               setFreezeApplePieAtZero(true);
-
-                              // 3) Prep the next cycle immediately (jump to full while hidden).
                               setPieShouldInstantJumpToOne(true);
                               setAppleTimer(1);
                               setHasSpoilageTriggered(false);
-
-                              // 4) When the text finishes, unfreeze to reveal the full meter.
                               setTimeout(() => {
                                 setFreezeApplePieAtZero(false);
                               }, SPOIL_LABEL_RISE_MS + SPOIL_LABEL_LINGER_MS);
@@ -1168,6 +1281,7 @@ const renderNpcRow = () => (
                             }
                           }}
                         />
+
 
 
                       </View>
@@ -1285,7 +1399,7 @@ const renderNpcRow = () => (
       // 2. Queue the popup message
       enqueueEventPopup({
         resource: 'shells',
-        message: 'washed up on the beach, decreasing their value by half!',
+        message: 'washed up on the beach, decreasing their value!',
         amount: null, // no number
       });
 
