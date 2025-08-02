@@ -346,9 +346,7 @@ export default function App() {
   const SPOIL_LABEL_RISE_MS = 3000;
   const SPOIL_LABEL_LINGER_MS = 2400;
 
-  // --- Pottery fragility ---
-  const [potteryTradeCount, setPotteryTradeCount] = useState(0);
-  const [pendingPotteryBreak, setPendingPotteryBreak] = useState(false);
+
 
   
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
@@ -452,47 +450,7 @@ export default function App() {
     });
   }, [width]);
 
-  // --- Tick pottery fragility each time a trade that involves pottery completes ---
-  // If 3 pottery-involving trades occur, we break 1 pottery.
-  // If we hit 3 but have 0 pottery, we set a pending flag and wait until the next pottery trade
-  // where we *do* have pottery, then break 1 and reset.
-  const tickPotteryFragility = React.useCallback(
-    (
-      trade: Trade,
-      playerOffer: Partial<Record<ResourceType, number>>,
-      updatedResources: Record<ResourceType, number>
-    ) => {
-      const involvesPottery =
-        trade.give === 'pottery' || ((playerOffer['pottery'] ?? 0) > 0);
 
-      if (!involvesPottery) return;
-
-      setPotteryTradeCount(prevCount => {
-        // If a break was pending, try to execute it now *without* incrementing
-        if (pendingPotteryBreak) {
-          if ((updatedResources.pottery ?? 0) > 0) {
-            handlePotteryBreak();
-            setPendingPotteryBreak(false);
-            return 0; // reset counter after break
-          }
-          return prevCount; // still pending, keep as-is
-        }
-
-        const next = prevCount + 1;
-        if (next >= 3) {
-          if ((updatedResources.pottery ?? 0) > 0) {
-            handlePotteryBreak();
-            return 0; // reset after successful break
-          } else {
-            setPendingPotteryBreak(true); // wait for the next pottery trade where we have >0
-            return 3; // hold at threshold while pending
-          }
-        }
-        return next;
-      });
-    },
-    [pendingPotteryBreak, handlePotteryBreak]
-  );
 
   
   const handleTradeCompleted = React.useCallback(
@@ -819,7 +777,6 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
 
               handleTradeCompleted(trade, playerOffer);
               // Pottery fragility: count pottery-involving trades and break 1 every 3
-              tickPotteryFragility(trade, playerOffer, newResources);
               setRecentlyOfferedGoods(prev => [trade.give, ...prev].slice(0, 2));
 
               if (trade.give === 'cow') {
