@@ -149,7 +149,11 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 };
 
 
-const SHELL_TRADE_INTERVAL = 7;
+// how often to trigger the shell event
+const SHELL_TRADE_INTERVAL = 8;
+// fraction of apple‐pie decremented per trade
+const APPLE_DECAY_STEP = 0.20;
+
 const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; animate?: boolean; onDepleted?: () => void }) => {
   const radius = 12;
   // Pulse animation state (scale) 
@@ -503,7 +507,7 @@ export default function App() {
 
       const applyDecrement = () => {
         setAppleTimer(prev => {
-          const next = Math.max(0, prev - 0.20);
+          const next = Math.max(0, prev - APPLE_DECAY_STEP);
           if (prev > 0 && next === 0 && !hasSpoilageTriggered) {
             setHasSpoilageTriggered(true);
           }
@@ -849,7 +853,8 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
               // Compute if the apple timer will hit zero *this* trade (priority #1)
               const currentPie = freezeApplePieAtZero ? 0 : appleTimer;
               const willAppleHitZero =
-                hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - 0.25) === 0;
+                hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - APPLE_DECAY_STEP) === 0;
+              
 
               // Define pottery starter (priority #2)
               const startPotteryDrop = (trade.give === 'pottery')
