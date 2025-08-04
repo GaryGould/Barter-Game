@@ -1,5 +1,5 @@
 
-  import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
   import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { CLAMPED_WIDTH } from '../normalize';
@@ -75,7 +75,18 @@ type TradeScaleProps = {
 
     // How far the beam tilts (degrees)
     const rotation = imbalance * 15;
-
+    
+    // smooth, interruptible animation of the beam tilt
+    const animatedRotation = useRef(new Animated.Value(rotation)).current;
+    useEffect(() => {
+      // cancel any in-flight tween
+      animatedRotation.stopAnimation();
+      Animated.timing(animatedRotation, {
+        toValue: rotation,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }, [rotation]);
     //
     // ---- PAN POSITIONING ----
     //
@@ -146,7 +157,37 @@ type TradeScaleProps = {
       x: offsetX,
       y: pivotY + offsetY,
     };
+    // animate pan positions so the pans tilt smoothly with the beam
+    const animatedLeftPanX = useRef(new Animated.Value(leftTip.x)).current;
+    const animatedLeftPanY = useRef(new Animated.Value(leftTip.y)).current;
+    const animatedRightPanX = useRef(new Animated.Value(rightTip.x)).current;
+    const animatedRightPanY = useRef(new Animated.Value(rightTip.y)).current;
 
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(animatedLeftPanX, {
+          toValue: leftTip.x,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedLeftPanY, {
+          toValue: leftTip.y,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedRightPanX, {
+          toValue: rightTip.x,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedRightPanY, {
+          toValue: rightTip.y,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [leftTip.x, leftTip.y, rightTip.x, rightTip.y]);
+    
     //
     // ---- ITEM STACK RENDERING ----
     // This displays the icons in two rows inside a pan
@@ -265,61 +306,89 @@ type TradeScaleProps = {
         {/* The beam image tilts based on value difference */}
         <Animated.Image
           source={beamImage}
-          style={[styles.beam, { transform: [{ rotate: `${rotation}deg` }] }]}
+          style={[
+            styles.beam,
+            {
+              transform: [{
+                rotate: animatedRotation.interpolate({
+                  inputRange: [-15, 15],
+                  outputRange: ['-15deg', '15deg'],
+                }),
+              }],
+            },
+          ]}
           resizeMode="contain"
         />
 
         {/* Left pan image */}
         <Animated.Image
           source={panImage}
-          style={[styles.pan, { transform: [{ translateX: leftTip.x }, { translateY: leftTip.y }] }]}
+          style={[
+            styles.pan,
+            {
+              transform: [
+                { translateX: animatedLeftPanX },
+                { translateY: animatedLeftPanY },
+              ],
+            },
+          ]}
           resizeMode="contain"
         />
 
         {/* Player's offered items rendered inside left pan */}
-        <View
+        <Animated.View
           ref={leftPanRef}
           collapsable={false}
+          pointerEvents="box-none"
           style={{
             position: 'absolute',
-            transform: [
-              { translateX: leftTip.x },
-              { translateY: leftTip.y + PAN_HEIGHT * 0.15 },
-            ],
             width: PAN_WIDTH,
             alignItems: 'center',
+            transform: [
+              { translateX: animatedLeftPanX },
+              { translateY: Animated.add(animatedLeftPanY, PAN_HEIGHT * 0.15) },
+            ],
           }}
         >
-          <Animated.View pointerEvents="box-none">
-            {renderItems(playerOffer, onRemoveItem)}
-          </Animated.View>
-        </View>
+          {renderItems(playerOffer, onRemoveItem)}
+        </Animated.View>
+
 
         {/* Right pan image */}
         <Animated.Image
           source={panImage}
-          style={[styles.pan, { transform: [{ translateX: rightTip.x }, { translateY: rightTip.y }] }]}
+          style={[
+            styles.pan,
+            {
+              transform: [
+                { translateX: animatedRightPanX },
+                { translateY: animatedRightPanY },
+              ],
+            },
+          ]}
           resizeMode="contain"
         />
 
         {/* NPC's offered item in right pan */}
-        <View
+        <Animated.View
           ref={rightPanRef}
           collapsable={false}
+          pointerEvents="box-none"
           style={{
             position: 'absolute',
             width: PAN_WIDTH,
             alignItems: 'center',
             transform: [
-              { translateX: rightTip.x },
-              { translateY: rightTip.y + PAN_HEIGHT * 0.15 },
+              { translateX: animatedRightPanX },
+              { translateY: Animated.add(animatedRightPanY, PAN_HEIGHT * 0.15) },
             ],
           }}
         >
-          <Animated.View pointerEvents="box-none">
-            {renderItems({ [npcOffer.resource]: npcOffer.amount })}
-          </Animated.View>
-        </View>
+          {renderItems({ [npcOffer.resource]: npcOffer.amount })}
+        </Animated.View>
+
+
+
 
 
       </View>
