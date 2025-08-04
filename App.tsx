@@ -39,6 +39,9 @@ import { TradeScale, cancelAllScaleRemovals } from './components/TradeScale';
 import { NPCSlot } from './components/NPCSlot';
 import { ResourceDisplay } from './components/ResourceDisplay';
 import { TradeModal } from './components/TradeModal';
+import { Tutorial } from './components/Tutorial';
+
+
 
 type Direction = 'left' | 'right';
 
@@ -280,6 +283,8 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 
 
 export default function App() {
+  // --- Tutorial State ---
+  const [showTutorial, setShowTutorial] = useState(true);
 
   //world events
   const [showWorldEvent, setShowWorldEvent] = useState(false);
@@ -364,7 +369,10 @@ export default function App() {
   const SPOIL_LABEL_LINGER_MS = 2400;
 
 
-
+  // --- Tutorial completion handler ---
+  const handleTutorialComplete = React.useCallback(() => {
+    setShowTutorial(false);
+  }, []);
   
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
   const handleAppleSpoilage = React.useCallback(() => {
@@ -1709,85 +1717,7 @@ const renderNpcRow = () => (
   
   
 
-  // --- Intro overlay ---
-  const renderIntroOverlay = () => {
-    if (!showIntro) return null;
-    return (
-      <View
-        style={{
-          ...StyleSheet.absoluteFillObject,
-          backgroundColor: 'rgba(255,255,255,0.75)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingHorizontal: 24,
-        }}
-        pointerEvents="auto"
-      >
-        <View
-          style={{
-            maxWidth: 520,
-            width: '90%',
-            backgroundColor: '#ffffff',
-            borderRadius: 16,
-            padding: 20,
-            borderWidth: 1,
-            borderColor: '#dddddd',
-            shadowColor: '#000',
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 2,
-          }}
-        >
-          <Text
-            style={{
-              color: '#111111',
-              fontSize: 22,
-              fontWeight: '700',
-              marginBottom: 12,
-              textAlign: 'center',
-            }}
-          >
-            Welcome to the market!
-          </Text>
 
-          <Text
-            style={{
-              color: '#333333',
-              fontSize: 16,
-              lineHeight: 22,
-              textAlign: 'center',
-              marginBottom: 20,
-            }}
-          >
-            Make smart trades, work your way up, and barter for the ultimate prize: a cow!
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => setShowIntro(false)}
-            style={{
-              alignSelf: 'center',
-              paddingVertical: 12,
-              paddingHorizontal: 18,
-              backgroundColor: '#2ecc71',
-              borderRadius: 10,
-              minWidth: 180,
-            }}
-          >
-            <Text
-              style={{
-                color: '#0b2b13',
-                fontWeight: '700',
-                textAlign: 'center',
-              }}
-            >
-              Start trading!
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
   
 
   
@@ -1831,24 +1761,21 @@ const renderNpcRow = () => (
 
 
 
-  // Render ONLY the intro screen until the player taps Start trading!
-  if (showIntro) {
-    return (
-      <View style={styles.containerWrapper}>
-        <WarmDecoder />
-        {renderIntroOverlay()}
-      </View>
-    );
-  }
 
   return (
-
     <View style={styles.containerWrapper}>
       <WarmDecoder />
+      <FlyingResourceManager ref={flyingRef} />
 
-      {renderIntroOverlay()}
-
-    <FlyingResourceManager ref={flyingRef} />
+      {/* Tutorial - Show first before main game */}
+      {showTutorial ? (
+        <Tutorial
+          onComplete={handleTutorialComplete}
+          flyingRef={flyingRef}
+          inventoryRefs={inventoryRefs}
+        />
+      ) : (
+        <>
 
     {/* Top Tab */}
     {showWorldEvent && (
@@ -1943,10 +1870,12 @@ const renderNpcRow = () => (
         />
       </>
     )}
-      {renderEventPopup()}
-    {renderGameEventOverlay()}
-  </View>
-);
+          {renderEventPopup()}
+          {renderGameEventOverlay()}
+        </>
+      )}
+    </View>
+  );
 
 
 

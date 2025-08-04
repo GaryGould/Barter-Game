@@ -12,22 +12,25 @@
         wantAmount: number;
     };
 
-    type Props = {
-        trade: Trade;
-        playerOffer: Partial<Record<ResourceType, number>>;
-        unitValues: Record<ResourceType, number>;
-        onAccept: () => void;
-        onDecline: () => void;
-        onRemoveItem: (resource: ResourceType) => void;
-        likes: ResourceType[];
-        dislikes: ResourceType[];
-        onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
-        onRightPanMeasured?: (pos: { x: number; y: number }) => void;
-        introAnimatedRef: React.RefObject<boolean>;
+type Props = {
+    trade: Trade;
+    playerOffer: Partial<Record<ResourceType, number>>;
+    unitValues: Record<ResourceType, number>;
+    onAccept: () => void;
+    onDecline: () => void;
+    onRemoveItem: (resource: ResourceType) => void;
+    likes: ResourceType[];
+    dislikes: ResourceType[];
+    onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
+    onRightPanMeasured?: (pos: { x: number; y: number }) => void;
+    introAnimatedRef: React.RefObject<boolean>;
+    // Tutorial-specific props
+    hideNumbers?: boolean;
+    hideDecline?: boolean;
+    tutorialText?: string;
+};
 
-    };
-
-    export const TradeModal = ({
+export const TradeModal = ({
     trade,
     playerOffer,
     unitValues,
@@ -38,7 +41,10 @@
     dislikes,
     onLeftPanMeasured,
     onRightPanMeasured,
-        introAnimatedRef,
+    introAnimatedRef,
+    hideNumbers = false,
+    hideDecline = false,
+    tutorialText,
 
     }: Props) => {
         // Animation for labels ("Likes:" and "Dislikes:")
@@ -119,14 +125,23 @@
         );
         
 
-        return (
-            <View style={styles.container} pointerEvents="auto">
-                {/* Likes and Dislikes */}
+    return (
+        <View style={styles.container} pointerEvents="auto">
+            {/* Tutorial Text */}
+            {tutorialText && (
+                <View style={styles.tutorialTextContainer}>
+                    <Text style={styles.tutorialText}>{tutorialText}</Text>
+                </View>
+            )}
+
+            {/* Likes and Dislikes */}
                 <View style={styles.preferencesRow}>
                     <View style={styles.preferenceRowItem}>
+                    {(likes.length > 0) && (
                         <Animated.Text style={[styles.preferenceLabel, { transform: [{ scale: labelAnim }] }]}>
                             Likes:
                         </Animated.Text>
+                    )}
                             {likes.map((res) => (
                             <Animated.View
                                 key={`like-${res}`}
@@ -141,9 +156,11 @@
                     </View>
 
                     <View style={styles.preferenceRowItem}>
+                    {(dislikes.length > 0) && (
                         <Animated.Text style={[styles.preferenceLabel, { transform: [{ scale: labelAnim }] }]}>
                             Dislikes:
                         </Animated.Text>
+                    )}
                             {dislikes.map((res) => (
                             <Animated.View
                                 key={`dislike-${res}`}
@@ -179,13 +196,15 @@
 
 
 
+                {!hideDecline && (
                     <TouchableOpacity
                         style={styles.fullButtonWrapper}
                         onPress={onDecline}
                     >
                         <Text style={styles.buttonText}>Decline</Text>
                     </TouchableOpacity>
-                </View>
+                )}
+            </View>
 
                 {/* Scale */}
                 <TradeScale
@@ -302,5 +321,20 @@
             height: 28,
             alignSelf: 'center',
             marginHorizontal: 3,
+        },
+        tutorialTextContainer: {
+            width: '100%',
+            backgroundColor: 'rgba(255, 149, 0, 0.1)',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#ff9500',
+        },
+        tutorialText: {
+            fontSize: 16,
+            color: '#333',
+            textAlign: 'center',
+            fontWeight: '500',
         },
     });
