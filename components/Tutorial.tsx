@@ -337,6 +337,27 @@ export const Tutorial: React.FC<TutorialProps> = ({
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideTransitionAnim = useRef(new Animated.Value(1)).current;
 
+
+    // ========================================================================
+    // IMAGE PRELOADING
+    // ========================================================================
+
+    React.useEffect(() => {
+        // Preload all tutorial images to prevent pop-in
+        const imagesToPreload = [
+            require('../assets/Icons/apple.png'),
+            require('../assets/Icons/Salt.png'),
+            require('../assets/Icons/Tools.png'),
+            require('../assets/Icons/pottery.png'),
+            require('../assets/Icons/shell.png'),
+            require('../assets/Icons/cow.png'),
+        ];
+
+        // Prefetch all images
+        imagesToPreload.forEach(image => {
+            Image.prefetch(Image.resolveAssetSource(image).uri);
+        });
+    }, []);
     // ========================================================================
     // OUTRO SLIDE GENERATION
     // ========================================================================
