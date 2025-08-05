@@ -150,9 +150,9 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     {
         type: 'trade',
         tradeConfig: {
-            trade: { give: 'pottery', giveAmount: 1, want: 'apples', wantAmount: 2 },
-            values: { salt: 1, apples: 20, tools: 31, pottery: 1, shells: 1, cow: 120 },
-            startingInventory: { salt: 0, apples: 3, tools: 0, pottery: 0, shells: 2, cow: 0 },
+            trade: { give: 'tools', giveAmount: 1, want: 'apples', wantAmount: 2 },
+            values: { salt: 1, apples: 20, tools: 21, pottery: 5, shells: 2, cow: 120 },
+            startingInventory: { salt: 0, apples: 1, tools: 0, pottery: 1, shells: 1, cow: 0 },
             likes: ['apples'],
             dislikes: ['shells', 'pottery'],
             instructionText: 'This trader only values apples highly',
@@ -171,11 +171,11 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         content: 'Which of these goods do you think would be the ideal item for trading?\n\nChoose carefully!',
         itemSelection: {
             items: [
-                { resource: 'tools', quantity: 3, icon: require('../assets/Icons/Tools.png'), label: 'Tools' },
-                { resource: 'salt', quantity: 5, icon: require('../assets/Icons/Salt.png'), label: 'Salt' },
-                { resource: 'apples', quantity: 4, icon: require('../assets/Icons/apple.png'), label: 'Fruit' },
+                { resource: 'tools', quantity: 1, icon: require('../assets/Icons/Tools.png'), label: 'Tools' },
+                { resource: 'salt', quantity: 25, icon: require('../assets/Icons/Salt.png'), label: 'Salt' },
+                { resource: 'apples', quantity: 6, icon: require('../assets/Icons/apple.png'), label: 'Fruit' },
                 { resource: 'pottery', quantity: 2, icon: require('../assets/Icons/pottery.png'), label: 'Pottery' },
-                { resource: 'shells', quantity: 6, icon: require('../assets/Icons/shell.png'), label: 'Seashells' },
+                { resource: 'shells', quantity: 3, icon: require('../assets/Icons/shell.png'), label: 'Seashells' },
             ],
         },
     },
