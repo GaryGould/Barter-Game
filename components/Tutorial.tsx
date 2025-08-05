@@ -7,6 +7,7 @@ import {
     useWindowDimensions,
     Image,
     Animated,
+    TextInput,
 } from 'react-native';
 import { styles } from '../styles/styles';
 import {
@@ -31,13 +32,16 @@ type Trade = {
 };
 
 type TutorialProps = {
-    onComplete: () => void;
+    onComplete: (data?: {
+        selectedStartingItem?: { resource: ResourceType, quantity: number, label: string };
+        userReasoning?: string;
+    }) => void;
     flyingRef: React.RefObject<FlyingResourceManagerHandle | null>;
     inventoryRefs: React.RefObject<Record<ResourceType, View | null>>;
 };
 
 type TutorialSlideConfig = {
-    type: 'welcome' | 'text' | 'comparison' | 'trade';
+    type: 'welcome' | 'text' | 'comparison' | 'trade' | 'item-selection' | 'text-input' | 'final';
     title?: string;
     content?: string;
     images?: Array<{ src: any; text?: string }>;
@@ -58,6 +62,18 @@ type TutorialSlideConfig = {
         likes: ResourceType[];
         dislikes: ResourceType[];
         instructionText: string;
+    };
+    itemSelection?: {
+        items: Array<{
+            resource: ResourceType;
+            quantity: number;
+            icon: any;
+            label: string;
+        }>;
+    };
+    textInput?: {
+        prompt: string;
+        placeholder: string;
     };
 };
 
@@ -134,13 +150,49 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     {
         type: 'trade',
         tradeConfig: {
-            trade: { give: 'tools', giveAmount: 1, want: 'apples', wantAmount: 2 },
-            values: { salt: 1, apples: 20, tools: 21, pottery: 5, shells: 1, cow: 120 },
-            startingInventory: { salt: 0, apples: 1, tools: 0, pottery: 1, shells: 1, cow: 0 },
+            trade: { give: 'pottery', giveAmount: 1, want: 'apples', wantAmount: 2 },
+            values: { salt: 1, apples: 20, tools: 31, pottery: 1, shells: 1, cow: 120 },
+            startingInventory: { salt: 0, apples: 3, tools: 0, pottery: 0, shells: 2, cow: 0 },
             likes: ['apples'],
             dislikes: ['shells', 'pottery'],
-            instructionText: 'This trader values apples',
+            instructionText: 'This trader only values apples highly',
         },
+    },
+
+    // Slide 6: Transition to master trader
+    {
+        type: 'text',
+        content: 'Alright, now it\'s time to become a master trader',
+    },
+
+    // Slide 7: Item selection for starting the real game
+    {
+        type: 'item-selection',
+        content: 'Which of these goods do you think would be the ideal item for trading?\n\nChoose carefully!',
+        itemSelection: {
+            items: [
+                { resource: 'tools', quantity: 3, icon: require('../assets/Icons/Tools.png'), label: 'Tools' },
+                { resource: 'salt', quantity: 5, icon: require('../assets/Icons/Salt.png'), label: 'Salt' },
+                { resource: 'apples', quantity: 4, icon: require('../assets/Icons/apple.png'), label: 'Fruit' },
+                { resource: 'pottery', quantity: 2, icon: require('../assets/Icons/pottery.png'), label: 'Pottery' },
+                { resource: 'shells', quantity: 6, icon: require('../assets/Icons/shell.png'), label: 'Seashells' },
+            ],
+        },
+    },
+
+    // Slide 8: Text input for reasoning
+    {
+        type: 'text-input',
+        textInput: {
+            prompt: 'Explain briefly why you think [SELECTED_ITEM] will make the effective trade good?',
+            placeholder: 'user text goes here',
+        },
+    },
+
+    // Slide 9: Final slide before starting the game
+    {
+        type: 'final',
+        content: 'Thanks — let\'s see how your view evolves after the activity',
     },
 ];
 
@@ -201,6 +253,17 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     const { width } = useWindowDimensions();
 
     // ========================================================================
+    // UTILITY FUNCTIONS
+    // ========================================================================
+
+    /**
+     * Counts the number of words in a text string
+     */
+    const countWords = (text: string): number => {
+        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    };
+
+    // ========================================================================
     // STATE MANAGEMENT
     // ========================================================================
 
@@ -217,6 +280,10 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         cow: 0,
     });
     const [tutorialPlayerOffer, setTutorialPlayerOffer] = useState<Partial<Record<ResourceType, number>>>({});
+
+    // Post-tutorial selection state
+    const [selectedStartingItem, setSelectedStartingItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
+    const [userReasoning, setUserReasoning] = useState<string>('');
 
     // Position tracking for animations
     const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
@@ -362,7 +429,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         setTutorialPlayerOffer({});
 
         // Handle special fade transitions for trade completion
-        if (currentSlideIndex === 4 || currentSlideIndex === 6) {
+        if (currentSlideIndex === 3 || currentSlideIndex === 5) {
             Animated.timing(slideTransitionAnim, {
                 toValue: 1,
                 duration: 600,
@@ -387,11 +454,12 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
 
     // Handle fade transitions for specific slides
     React.useEffect(() => {
-        const slidesThatFadeIn = [3, 5, 6]; // Trade slides and subjective value slide
+        const tradeSlides = [3, 5]; // Both trade slides
+        const textSlides = [4]; // Subjective value text slide
 
-        if (slidesThatFadeIn.includes(currentSlideIndex)) {
+        if (tradeSlides.includes(currentSlideIndex) || textSlides.includes(currentSlideIndex)) {
             slideTransitionAnim.setValue(1);
-            const duration = currentSlideIndex === 5 ? 600 : 800; // Shorter for text slide
+            const duration = textSlides.includes(currentSlideIndex) ? 600 : 800; // Shorter for text slides, longer for trade slides
 
             const timer = setTimeout(() => {
                 Animated.timing(slideTransitionAnim, {
@@ -423,20 +491,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                     Medium of Exchange
                 </Text>
                 <TouchableOpacity
-                    onPress={() => {
-                        // Special fade-out for subjective value slide
-                        if (currentSlideIndex === 5) {
-                            Animated.timing(slideTransitionAnim, {
-                                toValue: 1,
-                                duration: 600,
-                                useNativeDriver: true,
-                            }).start(() => {
-                                nextSlide();
-                            });
-                        } else {
-                            nextSlide();
-                        }
-                    }}
+                    onPress={nextSlide}
                     style={tutorialStyles.continueButton}
                 >
                     <Text style={tutorialStyles.continueButtonText}>Continue</Text>
@@ -524,7 +579,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
             </View>
 
             {/* White fade overlay for slide transitions */}
-            {(currentSlideIndex === 4 || currentSlideIndex === 5) && (
+            {currentSlideIndex === 4 && (
                 <Animated.View
                     style={{
                         position: 'absolute',
@@ -636,7 +691,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
             )}
 
             {/* White fade overlay for trade slide transitions */}
-            {(currentSlideIndex === 4 || currentSlideIndex === 6) && (
+            {(currentSlideIndex === 3 || currentSlideIndex === 5) && (
                 <Animated.View
                     style={{
                         position: 'absolute',
@@ -755,6 +810,181 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     };
 
     /**
+     * Renders the item selection slide where users choose their starting resource
+     */
+    const renderItemSelectionSlide = () => (
+        <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
+            <View style={{ maxWidth: 600, alignItems: 'center' }}>
+                <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
+
+                {currentSlide.itemSelection && (
+                    <View style={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                        gap: 20,
+                        marginVertical: 30,
+                        maxWidth: 400
+                    }}>
+                        {currentSlide.itemSelection.items.map((item, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                onPress={() => {
+                                    setSelectedStartingItem({
+                                        resource: item.resource,
+                                        quantity: item.quantity,
+                                        label: item.label
+                                    });
+                                    nextSlide();
+                                }}
+                                style={{
+                                    alignItems: 'center',
+                                    padding: 15,
+                                    borderRadius: 8,
+                                    backgroundColor: '#f8f9fa',
+                                    borderWidth: 1,
+                                    borderColor: '#e9ecef',
+                                    minWidth: 100,
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                <Image
+                                    source={item.icon}
+                                    style={{ width: 50, height: 50, marginBottom: 8 }}
+                                    resizeMode="contain"
+                                />
+                                <Text style={{ fontSize: 14, fontWeight: '600', color: '#000', textAlign: 'center' }}>
+                                    {item.label}
+                                </Text>
+                                <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                    x {item.quantity}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+            </View>
+        </View>
+    );
+
+    /**
+     * Renders the text input slide for user reasoning
+     */
+    const renderTextInputSlide = () => {
+        // Find the icon for the selected item from the item selection slide
+        const itemSelectionSlide = TUTORIAL_SLIDES.find(slide => slide.type === 'item-selection');
+        const selectedItemIcon = itemSelectionSlide?.itemSelection?.items.find(
+            item => item.resource === selectedStartingItem?.resource
+        )?.icon;
+
+        const wordCount = countWords(userReasoning);
+        const isValidInput = wordCount >= 3;
+
+        return (
+            <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
+                <View style={{ maxWidth: 500, alignItems: 'center' }}>
+                    {selectedStartingItem && selectedItemIcon && (
+                        <View style={{ alignItems: 'center', marginBottom: 30 }}>
+                            <Image
+                                source={selectedItemIcon}
+                                style={{ width: 80, height: 80, marginBottom: 15 }}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    )}
+
+                    <Text style={tutorialStyles.tutorialText}>
+                        {currentSlide.textInput?.prompt.replace('[SELECTED_ITEM]', selectedStartingItem?.label || 'your choice')}
+                    </Text>
+
+                    <View style={{
+                        width: '100%',
+                        maxWidth: 400,
+                        marginVertical: 30,
+                        padding: 15,
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: '#e9ecef',
+                        minHeight: 100,
+                    }}>
+                        <TextInput
+                            style={{
+                                flex: 1,
+                                fontSize: 14,
+                                color: '#333',
+                                textAlignVertical: 'top',
+                            }}
+                            placeholder={currentSlide.textInput?.placeholder}
+                            placeholderTextColor="#666"
+                            value={userReasoning}
+                            onChangeText={setUserReasoning}
+                            multiline={true}
+                            numberOfLines={4}
+                        />
+                    </View>
+
+                    {/* Word count indicator */}
+                    <Text style={{
+                        fontSize: 12,
+                        color: isValidInput ? '#28a745' : '#dc3545',
+                        marginBottom: 20
+                    }}>
+                        {wordCount}/3 words minimum
+                    </Text>
+
+                    <TouchableOpacity
+                        onPress={nextSlide}
+                        disabled={!isValidInput}
+                        style={[
+                            tutorialStyles.continueButton,
+                            {
+                                backgroundColor: isValidInput ? '#ff9500' : '#ccc',
+                                opacity: isValidInput ? 1 : 0.6
+                            }
+                        ]}
+                    >
+                        <Text style={[
+                            tutorialStyles.continueButtonText,
+                            { color: isValidInput ? '#ffffff' : '#999' }
+                        ]}>
+                            Continue
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    };
+
+    /**
+     * Renders the final slide before starting the real game
+     */
+    const renderFinalSlide = () => (
+        <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
+            <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
+                <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
+
+                <TouchableOpacity
+                    onPress={() => {
+                        // Pass the selected starting item and reasoning to the parent component
+                        if (selectedStartingItem) {
+                            onComplete({
+                                selectedStartingItem,
+                                userReasoning
+                            });
+                        } else {
+                            onComplete();
+                        }
+                    }}
+                    style={[tutorialStyles.continueButton, { backgroundColor: '#28a745' }]}
+                >
+                    <Text style={tutorialStyles.continueButtonText}>Start</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    /**
      * Main render method that determines which slide type to display
      */
     const renderCurrentSlide = () => {
@@ -767,6 +997,12 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                 return renderComparisonSlide();
             case 'trade':
                 return renderTradeSlide();
+            case 'item-selection':
+                return renderItemSelectionSlide();
+            case 'text-input':
+                return renderTextInputSlide();
+            case 'final':
+                return renderFinalSlide();
             default:
                 return null;
         }

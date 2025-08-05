@@ -370,10 +370,34 @@ export default function App() {
 
 
   // --- Tutorial completion handler ---
-  const handleTutorialComplete = React.useCallback(() => {
+  const handleTutorialComplete = React.useCallback((data?: {
+    selectedStartingItem?: { resource: ResourceType, quantity: number, label: string };
+    userReasoning?: string;
+  }) => {
     setShowTutorial(false);
+
+    // If user completed the full tutorial with item selection
+    if (data?.selectedStartingItem) {
+      console.log('User selected:', data.selectedStartingItem);
+      console.log('User reasoning:', data.userReasoning);
+
+      // Create starting inventory with only the selected item
+      const startingInventory: Record<ResourceType, number> = {
+        salt: 0,
+        apples: 0,
+        tools: 0,
+        pottery: 0,
+        shells: 0,
+        cow: 0,
+      };
+
+      // Set the selected item quantity
+      startingInventory[data.selectedStartingItem.resource] = data.selectedStartingItem.quantity;
+
+      // Update the player's resources to start with only their chosen item
+      setResources(startingInventory);
+    }
   }, []);
-  
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
   const handleAppleSpoilage = React.useCallback(() => {
     const invRef = inventoryRefs.current.apples;
