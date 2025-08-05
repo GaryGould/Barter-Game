@@ -1,4 +1,4 @@
-// Tutorial.tsx 
+// Tutorial.tsx
 import React, { useState, useRef } from 'react';
 import {
     View,
@@ -38,6 +38,12 @@ type TutorialProps = {
     }) => void;
     flyingRef: React.RefObject<FlyingResourceManagerHandle | null>;
     inventoryRefs: React.RefObject<Record<ResourceType, View | null>>;
+    isOutroMode?: boolean;
+    tutorialData?: {
+        selectedStartingItem?: { resource: ResourceType, quantity: number, label: string };
+        userReasoning?: string;
+    } | null;
+    onOutroComplete?: () => void;
 };
 
 type TutorialSlideConfig = {
@@ -78,7 +84,7 @@ type TutorialSlideConfig = {
 };
 
 // ============================================================================
-// TUTORIAL CONFIGURATION
+// SLIDE CONFIGURATIONS
 // ============================================================================
 
 const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
@@ -192,7 +198,36 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 9: Final slide before starting the game
     {
         type: 'final',
-        content: 'Thanks — let\'s see how your view evolves after the activity',
+        content: 'To win, trade for a cow',
+    },
+];
+
+const BASE_OUTRO_SLIDES: TutorialSlideConfig[] = [
+    // Slide 0: Brief questionnaire intro
+    {
+        type: 'text',
+        content: 'Time for a brief questionnaire',
+    },
+
+    // Slide 1: Item effectiveness selection
+    {
+        type: 'item-selection',
+        content: 'Which of these items do you think was the most effective good for use in trading?',
+        itemSelection: {
+            items: [
+                { resource: 'tools', quantity: 1, icon: require('../assets/Icons/Tools.png'), label: 'Tools' },
+                { resource: 'salt', quantity: 1, icon: require('../assets/Icons/Salt.png'), label: 'Salt' },
+                { resource: 'apples', quantity: 1, icon: require('../assets/Icons/apple.png'), label: 'Fruit' },
+                { resource: 'pottery', quantity: 1, icon: require('../assets/Icons/pottery.png'), label: 'Pottery' },
+                { resource: 'shells', quantity: 1, icon: require('../assets/Icons/shell.png'), label: 'Seashells' },
+            ],
+        },
+    },
+
+    // Final slide: Thanks
+    {
+        type: 'text',
+        content: 'Thanks — all done',
     },
 ];
 
@@ -249,19 +284,15 @@ const tutorialStyles = {
 // MAIN COMPONENT
 // ============================================================================
 
-export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inventoryRefs }) => {
+export const Tutorial: React.FC<TutorialProps> = ({
+    onComplete,
+    flyingRef,
+    inventoryRefs,
+    isOutroMode = false,
+    tutorialData,
+    onOutroComplete
+}) => {
     const { width } = useWindowDimensions();
-
-    // ========================================================================
-    // UTILITY FUNCTIONS
-    // ========================================================================
-
-    /**
-     * Counts the number of words in a text string
-     */
-    const countWords = (text: string): number => {
-        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-    };
 
     // ========================================================================
     // STATE MANAGEMENT
@@ -281,10 +312,15 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     });
     const [tutorialPlayerOffer, setTutorialPlayerOffer] = useState<Partial<Record<ResourceType, number>>>({});
 
-    // Post-tutorial selection state
+    // Selection state for both tutorial and outro
     const [selectedStartingItem, setSelectedStartingItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
     const [userReasoning, setUserReasoning] = useState<string>('');
     const [tempSelectedItem, setTempSelectedItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
+
+    // Outro-specific state
+    const [outroSelectedBestItem, setOutroSelectedBestItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
+    const [outroComparisonTexts, setOutroComparisonTexts] = useState<string[]>([]);
+    const [currentOutroTextInput, setCurrentOutroTextInput] = useState<string>('');
 
     // Position tracking for animations
     const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
@@ -296,39 +332,123 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     // Animation states
     const [showAnimatedContent, setShowAnimatedContent] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideTransitionAnim = useRef(new Animated.Value(1)).current; // Start with white overlay
+    const slideTransitionAnim = useRef(new Animated.Value(1)).current;
+
+    // ========================================================================
+    // OUTRO SLIDE GENERATION
+    // ========================================================================
+
+    const generateOutroSlides = React.useCallback((): TutorialSlideConfig[] => {
+        if (!isOutroMode) return BASE_OUTRO_SLIDES;
+
+        const slides: TutorialSlideConfig[] = [];
+
+        // Add intro slide
+        slides.push(BASE_OUTRO_SLIDES[0]);
+
+        // Add item selection slide
+        slides.push(BASE_OUTRO_SLIDES[1]);
+
+        // If user has selected the best item, generate comparison slides
+        if (outroSelectedBestItem) {
+            const allItems = [
+                { resource: 'tools' as ResourceType, label: 'Tools', icon: require('../assets/Icons/Tools.png') },
+                { resource: 'salt' as ResourceType, label: 'Salt', icon: require('../assets/Icons/Salt.png') },
+                { resource: 'apples' as ResourceType, label: 'Fruit', icon: require('../assets/Icons/apple.png') },
+                { resource: 'pottery' as ResourceType, label: 'Pottery', icon: require('../assets/Icons/pottery.png') },
+                { resource: 'shells' as ResourceType, label: 'Seashells', icon: require('../assets/Icons/shell.png') },
+            ];
+
+            // Get the icon for the selected best item
+            const selectedItemData = allItems.find(item => item.resource === outroSelectedBestItem.resource);
+
+            // Get the 4 items that are NOT the selected best item
+            const otherItems = allItems.filter(
+                item => item.resource !== outroSelectedBestItem.resource
+            );
+
+            // Create comparison slides for each other item
+            otherItems.forEach(item => {
+                slides.push({
+                    type: 'text-input',
+                    textInput: {
+                        prompt: `Explain briefly why was more useful than ?`,
+                        placeholder: 'Your explanation here...',
+                        // Store the icons in a custom property for rendering
+                        comparisonIcons: {
+                            selected: selectedItemData?.icon,
+                            other: item.icon
+                        }
+                    } as any,
+                });
+            });
+        }
+
+        // Add final thanks slide
+        slides.push(BASE_OUTRO_SLIDES[BASE_OUTRO_SLIDES.length - 1]);
+
+        return slides;
+    }, [isOutroMode, outroSelectedBestItem]);
+
+    const slides = isOutroMode ? generateOutroSlides() : TUTORIAL_SLIDES;
 
     // ========================================================================
     // COMPUTED VALUES
     // ========================================================================
 
-    const currentSlide = TUTORIAL_SLIDES[currentSlideIndex];
-    const isLastSlide = currentSlideIndex >= TUTORIAL_SLIDES.length - 1;
+    const currentSlide = slides[currentSlideIndex];
+    const isLastSlide = currentSlideIndex >= slides.length - 1;
+
+    // ========================================================================
+    // UTILITY FUNCTIONS
+    // ========================================================================
+
+    const countWords = (text: string): number => {
+        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    };
 
     // ========================================================================
     // NAVIGATION UTILITIES
     // ========================================================================
 
-    /**
-     * Advances to the next slide or completes the tutorial
-     */
     const nextSlide = () => {
+        // Handle outro text input saving
+        if (isOutroMode && currentSlide.type === 'text-input' && currentOutroTextInput.trim()) {
+            setOutroComparisonTexts(prev => [...prev, currentOutroTextInput]);
+            setCurrentOutroTextInput('');
+        }
+
         if (isLastSlide) {
-            onComplete();
+            if (isOutroMode) {
+                onOutroComplete?.();
+            } else {
+                // Only pass data if we have a selected item
+                if (selectedStartingItem && userReasoning) {
+                    onComplete({
+                        selectedStartingItem: {
+                            resource: selectedStartingItem.resource,
+                            quantity: selectedStartingItem.quantity,
+                            label: selectedStartingItem.label
+                        },
+                        userReasoning: userReasoning
+                    });
+                } else {
+                    onComplete();
+                }
+            }
         } else {
             setCurrentSlideIndex(prev => prev + 1);
 
-            // Update inventory for slides that specify starting inventory
-            const nextSlideConfig = TUTORIAL_SLIDES[currentSlideIndex + 1];
-            if (nextSlideConfig?.tradeConfig?.startingInventory) {
-                setTutorialResources(nextSlideConfig.tradeConfig.startingInventory);
+            // Update inventory for trade slides (tutorial only)
+            if (!isOutroMode) {
+                const nextSlideConfig = slides[currentSlideIndex + 1];
+                if (nextSlideConfig?.tradeConfig?.startingInventory) {
+                    setTutorialResources(nextSlideConfig.tradeConfig.startingInventory);
+                }
             }
         }
     };
 
-    /**
-     * Triggers animated content for slides that support it
-     */
     const triggerSlideAnimation = () => {
         if (currentSlide.animatedContent && !showAnimatedContent) {
             setShowAnimatedContent(true);
@@ -338,7 +458,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                 useNativeDriver: true,
             }).start();
         } else {
-            // If animation already shown, go to next slide
             nextSlide();
         }
     };
@@ -347,9 +466,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     // TRADE GAME LOGIC
     // ========================================================================
 
-    /**
-     * Adds an item from inventory to the trade offer
-     */
     const handleTutorialAddItem = (res: ResourceType) => {
         if (tutorialResources[res] <= 0) return;
 
@@ -364,9 +480,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         }));
     };
 
-    /**
-     * Removes an item from the trade offer back to inventory
-     */
     const handleTutorialRemoveItem = (res: ResourceType) => {
         setTutorialPlayerOffer(prevOffer => {
             const currentCount = prevOffer[res] || 0;
@@ -376,13 +489,11 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
             newOffer[res] = currentCount - 1;
             if (newOffer[res] === 0) delete newOffer[res];
 
-            // Return the resource to inventory
             setTutorialResources(prevResources => ({
                 ...prevResources,
                 [res]: (prevResources[res] || 0) + 1,
             }));
 
-            // Animate the return if positions are available
             if (leftPanPosition && inventoryRefs.current[res]) {
                 inventoryRefs.current[res]?.measureInWindow((x: number, y: number, width: number, height: number) => {
                     const start = { x: leftPanPosition.x, y: leftPanPosition.y };
@@ -395,9 +506,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         });
     };
 
-    /**
-     * Determines if the current trade offer meets the NPC's requirements
-     */
     const isTutorialTradePassable = () => {
         const config = currentSlide.tradeConfig;
         if (!config) return false;
@@ -411,25 +519,19 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         return playerTotal >= npcTotal;
     };
 
-    /**
-     * Handles accepting a trade and completing the transaction
-     */
     const handleTutorialAccept = () => {
         if (!isTutorialTradePassable()) return;
 
         const config = currentSlide.tradeConfig;
         if (!config) return;
 
-        // Add the received item to tutorial resources
         setTutorialResources(prev => ({
             ...prev,
             [config.trade.give]: prev[config.trade.give] + config.trade.giveAmount,
         }));
 
-        // Clear offers
         setTutorialPlayerOffer({});
 
-        // Handle special fade transitions for trade completion
         if (currentSlideIndex === 3 || currentSlideIndex === 5) {
             Animated.timing(slideTransitionAnim, {
                 toValue: 1,
@@ -447,20 +549,18 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     // ANIMATION EFFECTS
     // ========================================================================
 
-    // Reset animation state when changing slides
     React.useEffect(() => {
         setShowAnimatedContent(false);
         fadeAnim.setValue(0);
     }, [currentSlideIndex]);
 
-    // Handle fade transitions for specific slides
     React.useEffect(() => {
-        const tradeSlides = [3, 5]; // Both trade slides
-        const textSlides = [4]; // Subjective value text slide
+        const tradeSlides = [3, 5];
+        const textSlides = [4];
 
         if (tradeSlides.includes(currentSlideIndex) || textSlides.includes(currentSlideIndex)) {
             slideTransitionAnim.setValue(1);
-            const duration = textSlides.includes(currentSlideIndex) ? 600 : 800; // Shorter for text slides, longer for trade slides
+            const duration = textSlides.includes(currentSlideIndex) ? 600 : 800;
 
             const timer = setTimeout(() => {
                 Animated.timing(slideTransitionAnim, {
@@ -478,9 +578,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     // RENDER METHODS
     // ========================================================================
 
-    /**
-     * Renders the welcome slide with title and continue button
-     */
     const renderWelcomeSlide = () => (
         <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
             <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
@@ -501,16 +598,12 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         </View>
     );
 
-    /**
-     * Renders text-based slides with optional images and animations
-     */
     const renderTextSlide = () => (
         <>
             <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
                 <View style={{ maxWidth: 500, alignItems: 'center' }}>
                     <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
 
-                    {/* Initial images */}
                     {currentSlide.images && currentSlide.images.map((img, index) => (
                         <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
                             <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} resizeMode="contain" />
@@ -518,7 +611,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                         </View>
                     ))}
 
-                    {/* Animated content that appears on continue */}
                     {showAnimatedContent && currentSlide.animatedContent && (
                         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', marginTop: 30 }}>
                             <Text style={[tutorialStyles.tutorialText, { marginBottom: 20 }]}>
@@ -533,7 +625,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                         </Animated.View>
                     )}
 
-                    {/* Trader preferences display */}
                     {currentSlide.preferences && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 40 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -557,10 +648,9 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
 
                     <TouchableOpacity
                         onPress={() => {
-                            // Handle different slide types
                             if (currentSlide.animatedContent) {
                                 triggerSlideAnimation();
-                            } else if (currentSlideIndex === 4) { // Subjective value slide
+                            } else if (!isOutroMode && currentSlideIndex === 4) {
                                 Animated.timing(slideTransitionAnim, {
                                     toValue: 1,
                                     duration: 600,
@@ -574,12 +664,13 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                         }}
                         style={tutorialStyles.continueButton}
                     >
-                        <Text style={tutorialStyles.continueButtonText}>Continue</Text>
+                        <Text style={tutorialStyles.continueButtonText}>
+                            {isOutroMode ? (isLastSlide ? 'Finish' : 'Next') : 'Continue'}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* White fade overlay for slide transitions */}
             {currentSlideIndex === 4 && (
                 <Animated.View
                     style={{
@@ -598,9 +689,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         </>
     );
 
-    /**
-     * Renders comparison slides with before/after animations
-     */
     const renderComparisonSlide = () => {
         const renderChain = () => {
             if (!currentSlide.animatedContent?.chain) return null;
@@ -626,7 +714,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                 <View style={{ maxWidth: 500, alignItems: 'center' }}>
                     <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
 
-                    {/* Initial comparison */}
                     {currentSlide.comparison && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 30 }}>
                             <Image source={currentSlide.comparison.left} style={{ width: 50, height: 50 }} resizeMode="contain" />
@@ -635,7 +722,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                         </View>
                     )}
 
-                    {/* Animated complexity demonstration */}
                     {showAnimatedContent && currentSlide.animatedContent && (
                         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', marginTop: 20 }}>
                             <Text style={[tutorialStyles.tutorialText, { marginBottom: 20 }]}>
@@ -659,12 +745,8 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         );
     };
 
-    /**
-     * Renders interactive trading slides with game mechanics
-     */
     const renderTradeSlide = () => (
         <>
-            {/* Tutorial Game Scene */}
             <View
                 style={[
                     styles.container,
@@ -683,7 +765,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                 {renderTutorialTradeOverlay()}
             </View>
 
-            {/* Side walls for wide screens */}
             {width > MAX_PHONE_WIDTH && (
                 <>
                     <View style={[styles.wallSide, { width: 600, left: (width - TOTAL_SCENE_WIDTH) / 2 - 600 }]} />
@@ -691,7 +772,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                 </>
             )}
 
-            {/* White fade overlay for trade slide transitions */}
             {(currentSlideIndex === 3 || currentSlideIndex === 5) && (
                 <Animated.View
                     style={{
@@ -710,9 +790,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         </>
     );
 
-    /**
-     * Renders the resource inventory section for trading
-     */
     const renderTutorialResourceSection = () => (
         <View style={styles.resourceSection}>
             {([['salt', 'apples'], ['tools', 'pottery', 'shells']] as ResourceType[][]).map((row, i) => (
@@ -754,9 +831,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         </View>
     );
 
-    /**
-     * Renders the trade modal overlay for tutorial interactions
-     */
     const renderTutorialTradeOverlay = () => {
         const config = currentSlide.tradeConfig;
         if (!config) return null;
@@ -781,7 +855,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                     unitValues={config.values}
                     onAccept={handleTutorialAccept}
                     onDecline={() => {
-                        // Return all offered items to inventory
                         const itemsToReturn = { ...tutorialPlayerOffer };
                         setTutorialPlayerOffer({});
 
@@ -801,7 +874,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                     onLeftPanMeasured={(pos) => { leftPanPositionRef.current = pos; setLeftPanPosition(pos); }}
                     onRightPanMeasured={(pos) => { rightPanPositionRef.current = pos; setRightPanPosition(pos); }}
                     introAnimatedRef={tradeIntroAnimatedRef}
-                    // Tutorial-specific configurations
                     hideNumbers={true}
                     hideDecline={true}
                     tutorialText={config.instructionText}
@@ -810,102 +882,216 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         );
     };
 
-    /**
-     * Renders the item selection slide where users choose their starting resource
-     */
-    const renderItemSelectionSlide = () => (
-        <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
-            <View style={{ maxWidth: 600, alignItems: 'center' }}>
-                <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
+    const renderItemSelectionSlide = () => {
+        const handleSelection = () => {
+            if (!tempSelectedItem) return;
 
-                {currentSlide.itemSelection && (
-                    <View style={{
-                        flexDirection: 'row',
-                        flexWrap: 'wrap',
-                        justifyContent: 'center',
-                        gap: 20,
-                        marginVertical: 30,
-                        maxWidth: 400
-                    }}>
-                        {currentSlide.itemSelection.items.map((item, index) => {
-                            const isSelected = tempSelectedItem?.resource === item.resource;
-                            return (
-                                <TouchableOpacity
-                                    key={index}
-                                    onPress={() => {
-                                        setTempSelectedItem({
-                                            resource: item.resource,
-                                            quantity: item.quantity,
-                                            label: item.label
-                                        });
-                                    }}
-                                    style={{
-                                        alignItems: 'center',
-                                        padding: 15,
-                                        borderRadius: 8,
-                                        backgroundColor: isSelected ? '#fff3cd' : '#f8f9fa',
-                                        borderWidth: 2,
-                                        borderColor: isSelected ? '#ff9500' : '#e9ecef',
-                                        minWidth: 100,
-                                    }}
-                                    activeOpacity={0.7}
-                                >
-                                    <Image
-                                        source={item.icon}
-                                        style={{ width: 50, height: 50, marginBottom: 8 }}
-                                        resizeMode="contain"
-                                    />
-                                    <Text style={{
-                                        fontSize: 14,
-                                        fontWeight: isSelected ? '700' : '600',
-                                        color: '#000',
-                                        textAlign: 'center'
-                                    }}>
-                                        {item.label}
-                                    </Text>
-                                    <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                                        x {item.quantity}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                )}
+            if (isOutroMode) {
+                setOutroSelectedBestItem(tempSelectedItem);
+                setTempSelectedItem(null);
+            } else {
+                setSelectedStartingItem(tempSelectedItem);
+            }
+            nextSlide();
+        };
 
-                {/* Barter Button */}
-                <TouchableOpacity
-                    onPress={() => {
-                        if (tempSelectedItem) {
-                            setSelectedStartingItem(tempSelectedItem);
-                            nextSlide();
-                        }
-                    }}
-                    disabled={!tempSelectedItem}
-                    style={{
-                        backgroundColor: tempSelectedItem ? '#28a745' : '#ccc',
-                        paddingVertical: 12,
-                        paddingHorizontal: 32,
-                        borderRadius: 8,
-                        marginTop: 20,
-                    }}
-                >
-                    <Text style={{
-                        color: tempSelectedItem ? '#ffffff' : '#999',
-                        fontWeight: '700',
-                        fontSize: 16,
-                    }}>
-                        Barter!
-                    </Text>
-                </TouchableOpacity>
+        return (
+            <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
+                <View style={{ maxWidth: 600, alignItems: 'center' }}>
+                    <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
+
+                    {currentSlide.itemSelection && (
+                        <View style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center',
+                            gap: 20,
+                            marginVertical: 30,
+                            maxWidth: 400
+                        }}>
+                            {currentSlide.itemSelection.items.map((item, index) => {
+                                const isSelected = tempSelectedItem?.resource === item.resource;
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        onPress={() => {
+                                            setTempSelectedItem({
+                                                resource: item.resource,
+                                                quantity: item.quantity,
+                                                label: item.label
+                                            });
+                                        }}
+                                        style={{
+                                            alignItems: 'center',
+                                            padding: 15,
+                                            borderRadius: 8,
+                                            backgroundColor: isSelected ? '#fff3cd' : '#f8f9fa',
+                                            borderWidth: 2,
+                                            borderColor: isSelected ? '#ff9500' : '#e9ecef',
+                                            minWidth: 100,
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Image
+                                            source={item.icon}
+                                            style={{ width: 50, height: 50, marginBottom: 8 }}
+                                            resizeMode="contain"
+                                        />
+                                        <Text style={{
+                                            fontSize: 14,
+                                            fontWeight: isSelected ? '700' : '600',
+                                            color: '#000',
+                                            textAlign: 'center'
+                                        }}>
+                                            {item.label}
+                                        </Text>
+                                        {!isOutroMode && (
+                                            <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                                x {item.quantity}
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        onPress={handleSelection}
+                        disabled={!tempSelectedItem}
+                        style={{
+                            backgroundColor: tempSelectedItem ? (isOutroMode ? '#ff9500' : '#28a745') : '#ccc',
+                            paddingVertical: 12,
+                            paddingHorizontal: 32,
+                            borderRadius: 8,
+                            marginTop: 20,
+                        }}
+                    >
+                        <Text style={{
+                            color: tempSelectedItem ? '#ffffff' : '#999',
+                            fontWeight: '700',
+                            fontSize: 16,
+                        }}>
+                            {isOutroMode ? 'Next' : 'Barter!'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
-    );
+        );
+    };
 
-    /**
-     * Renders the text input slide for user reasoning
-     */
     const renderTextInputSlide = () => {
-        // Find the icon for the selected item from the item selection slide
+        if (isOutroMode) {
+            const wordCount = countWords(currentOutroTextInput);
+            const isValidInput = wordCount >= 3;
+
+            // Get the comparison icons from the slide config
+            const comparisonIcons = (currentSlide.textInput as any)?.comparisonIcons;
+
+            return (
+                <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
+                    <View style={{ maxWidth: 500, alignItems: 'center' }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: 20
+                        }}>
+                            <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
+                                Explain briefly why
+                            </Text>
+                            {comparisonIcons?.selected && (
+                                <Image
+                                    source={comparisonIcons.selected}
+                                    style={{
+                                        width: 30,
+                                        height: 30,
+                                        marginLeft: 8,
+                                        marginRight: 8,
+                                        marginBottom: -4  // Adjust vertical alignment
+                                    }}
+                                    resizeMode="contain"
+                                />
+                            )}
+                            <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
+                                was more useful than
+                            </Text>
+                            {comparisonIcons?.other && (
+                                <Image
+                                    source={comparisonIcons.other}
+                                    style={{
+                                        width: 30,
+                                        height: 30,
+                                        marginLeft: 8,
+                                        marginRight: 8,
+                                        marginBottom: -4  // Adjust vertical alignment
+                                    }}
+                                    resizeMode="contain"
+                                />
+                            )}
+                            <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>?</Text>
+                        </View>
+
+                        <View style={{
+                            width: '100%',
+                            maxWidth: 400,
+                            marginVertical: 30,
+                            padding: 15,
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: '#e9ecef',
+                            minHeight: 100,
+                        }}>
+                            <TextInput
+                                style={{
+                                    flex: 1,
+                                    fontSize: 14,
+                                    color: '#333',
+                                    textAlignVertical: 'top',
+                                }}
+                                placeholder={currentSlide.textInput?.placeholder}
+                                placeholderTextColor="#666"
+                                value={currentOutroTextInput}
+                                onChangeText={setCurrentOutroTextInput}
+                                multiline={true}
+                                numberOfLines={4}
+                            />
+                        </View>
+
+                        <Text style={{
+                            fontSize: 12,
+                            color: isValidInput ? '#28a745' : '#dc3545',
+                            marginBottom: 20
+                        }}>
+                            {wordCount}/3 words minimum
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={nextSlide}
+                            disabled={!isValidInput}
+                            style={[
+                                tutorialStyles.continueButton,
+                                {
+                                    backgroundColor: isValidInput ? '#ff9500' : '#ccc',
+                                    opacity: isValidInput ? 1 : 0.6
+                                }
+                            ]}
+                        >
+                            <Text style={[
+                                tutorialStyles.continueButtonText,
+                                { color: isValidInput ? '#ffffff' : '#999' }
+                            ]}>
+                                Continue
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
+
+
+        // Tutorial text input (for initial item reasoning)
         const itemSelectionSlide = TUTORIAL_SLIDES.find(slide => slide.type === 'item-selection');
         const selectedItemIcon = itemSelectionSlide?.itemSelection?.items.find(
             item => item.resource === selectedStartingItem?.resource
@@ -958,7 +1144,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                         />
                     </View>
 
-                    {/* Word count indicator */}
                     <Text style={{
                         fontSize: 12,
                         color: isValidInput ? '#28a745' : '#dc3545',
@@ -990,9 +1175,6 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
         );
     };
 
-    /**
-     * Renders the final slide before starting the real game
-     */
     const renderFinalSlide = () => (
         <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
             <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
@@ -1000,27 +1182,29 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
 
                 <TouchableOpacity
                     onPress={() => {
-                        // Pass the selected starting item and reasoning to the parent component
-                        if (selectedStartingItem) {
-                            onComplete({
-                                selectedStartingItem,
-                                userReasoning
-                            });
+                        if (isOutroMode) {
+                            onOutroComplete?.();
                         } else {
-                            onComplete();
+                            if (selectedStartingItem) {
+                                onComplete({
+                                    selectedStartingItem,
+                                    userReasoning
+                                });
+                            } else {
+                                onComplete();
+                            }
                         }
                     }}
-                    style={[tutorialStyles.continueButton, { backgroundColor: '#28a745' }]}
+                    style={[tutorialStyles.continueButton, { backgroundColor: isOutroMode ? '#ff9500' : '#28a745' }]}
                 >
-                    <Text style={tutorialStyles.continueButtonText}>Start</Text>
+                    <Text style={tutorialStyles.continueButtonText}>
+                        {isOutroMode ? 'Finish' : 'Start'}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 
-    /**
-     * Main render method that determines which slide type to display
-     */
     const renderCurrentSlide = () => {
         switch (currentSlide.type) {
             case 'welcome':

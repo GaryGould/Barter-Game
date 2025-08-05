@@ -286,6 +286,18 @@ export default function App() {
   // --- Tutorial State ---
   const [showTutorial, setShowTutorial] = useState(true);
 
+  // --- Tutorial Data Storage ---
+  const [tutorialData, setTutorialData] = useState<{
+    selectedStartingItem?: { resource: ResourceType, quantity: number, label: string };
+    userReasoning?: string;
+  } | null>(null);
+
+  // --- Outro State ---
+  const [showOutro, setShowOutro] = useState(false);
+
+  // --- Debug cheat code ---
+  const [debugKeySequence, setDebugKeySequence] = useState('');
+
   //world events
   const [showWorldEvent, setShowWorldEvent] = useState(false);
   const worldEventTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -376,6 +388,7 @@ export default function App() {
     userReasoning?: string;
   }) => {
     setShowTutorial(false);
+    setTutorialData(data || null);
 
     // If user completed the full tutorial with item selection
     if (data?.selectedStartingItem) {
@@ -401,6 +414,12 @@ export default function App() {
       // Generate initial NPCs that don't sell the player's chosen resource
       generateInitialNPCs(data.selectedStartingItem.resource);
     }
+  }, []);
+  // --- Outro completion handler ---
+  const handleOutroComplete = React.useCallback(() => {
+    setShowOutro(false);
+    setGameEvent(null);
+    setTutorialData(null);
   }, []);
 
   // --- Generate initial NPCs excluding player's chosen resource ---
@@ -749,6 +768,40 @@ export default function App() {
     }
   }, [eventLock, activeEvent, systemEventQueue.length]);
 
+  // Listen for keyboard events for debug cheat
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === '5' || event.key === '4') {
+        setDebugKeySequence(prev => {
+          const newSeq = prev + event.key;
+          // Keep only last 3 characters
+          return newSeq.slice(-3);
+        });
+      } else {
+        setDebugKeySequence('');
+      }
+    };
+
+    // Check if sequence matches our cheat codes
+    if (debugKeySequence === '555') {
+      // Skip directly to outro for testing
+      setShowTutorial(false);
+      setShowOutro(false);
+      setGameEvent('victory');
+      setDebugKeySequence('');
+    } else if (debugKeySequence === '444') {
+      // Give 10 tools to inventory
+      setResources(prev => ({
+        ...prev,
+        tools: (prev.tools || 0) + 10
+      }));
+      console.log('Debug: Added 10 tools to inventory');
+      setDebugKeySequence('');
+    }
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [debugKeySequence]);
 
 
   // Called when player taps on an NPC to initiate trade
@@ -1620,8 +1673,10 @@ const renderNpcRow = () => (
           </Text>
           <TouchableOpacity
             style={styles.victoryButton}
-            onPress={() => setGameEvent(null)}
-          >
+            onPress={() => {
+              setGameEvent(null);
+              setShowOutro(true);
+            }}          >
             <Text style={styles.victoryButtonText}>Continue</Text>
           </TouchableOpacity>
         </View>
@@ -1791,6 +1846,7 @@ const renderNpcRow = () => (
             <Text style={{ color: '#0b2b13', fontWeight: '700' }}>OK</Text>
           </TouchableOpacity>
         </View>
+
       </View>
     );
   };
@@ -1855,8 +1911,18 @@ const renderNpcRow = () => (
           flyingRef={flyingRef}
           inventoryRefs={inventoryRefs}
         />
+      ) : showOutro ? (
+        <Tutorial
+          isOutroMode={true}
+          tutorialData={tutorialData}
+          onComplete={() => { }} // Not used in outro mode
+          onOutroComplete={handleOutroComplete}
+          flyingRef={flyingRef}
+          inventoryRefs={inventoryRefs}
+        />
       ) : (
         <>
+      
 
     {/* Top Tab */}
     {showWorldEvent && (
