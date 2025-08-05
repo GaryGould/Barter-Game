@@ -9,6 +9,9 @@ import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { ResourceType } from '../App';
   import { resourceIcons } from '../resourceRegistry';
 
+ 
+// Create animated version of expo-image
+const AnimatedExpoImage = Animated.createAnimatedComponent(Image);
   // The size and layout of the scale and pans
 const beamImage = IMAGE_SOURCES.scaleBeam;
 const panImage = IMAGE_SOURCES.scalePan;

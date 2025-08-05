@@ -684,7 +684,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
                     <TouchableOpacity
                         onPress={() => {
-                            if (currentSlide.animatedContent) {
+                            if (currentSlide.animatedContent && !showAnimatedContent) {
                                 triggerSlideAnimation();
                             } else if (!isOutroMode && currentSlideIndex === 4) {
                                 Animated.timing(slideTransitionAnim, {
@@ -771,9 +771,18 @@ export const Tutorial: React.FC<TutorialProps> = ({
                         </Animated.View>
                     )}
 
-                    <TouchableOpacity onPress={triggerSlideAnimation} style={tutorialStyles.continueButton}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (currentSlide.animatedContent && !showAnimatedContent) {
+                                triggerSlideAnimation();
+                            } else {
+                                nextSlide();
+                            }
+                        }}
+                        style={tutorialStyles.continueButton}
+                    >
                         <Text style={tutorialStyles.continueButtonText}>
-                            {showAnimatedContent ? 'Continue' : 'Continue'}
+                            Continue
                         </Text>
                     </TouchableOpacity>
                 </View>
