@@ -206,15 +206,16 @@ export const TradeModal = ({
                 )}
             </View>
 
-                {/* Scale */}
-                <TradeScale
-                    playerOffer={playerOffer}
-                    npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
-                    unitValues={unitValues}
-                    onRemoveItem={onRemoveItem}
-                    onLeftPanMeasured={onLeftPanMeasured}
-                    onRightPanMeasured={onRightPanMeasured}
-                />
+            {/* Scale */}
+            <TradeScale
+                playerOffer={playerOffer}
+                npcOffer={{ resource: trade.give, amount: trade.giveAmount }}
+                unitValues={unitValues}
+                onRemoveItem={onRemoveItem}
+                onLeftPanMeasured={onLeftPanMeasured}
+                onRightPanMeasured={onRightPanMeasured}
+                hideNumbers={hideNumbers}
+            />
 
                 {/* Debug Values */}
                 {trade && (

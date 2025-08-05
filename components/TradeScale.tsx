@@ -43,21 +43,22 @@ type TradeScaleProps = {
   onRemoveItem?: (res: ResourceType) => void;
   onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
   onRightPanMeasured?: (pos: { x: number; y: number }) => void;
-  };
+  hideNumbers?: boolean;
+    };
 
   //
   // --- MAIN COMPONENT ---
   //
 
-  export const TradeScale = ({
-    playerOffer,
-    npcOffer,
-    unitValues,
-    onRemoveItem,
-    onLeftPanMeasured,
-    onRightPanMeasured,
-  }: TradeScaleProps) => {
-
+export const TradeScale = ({
+  playerOffer,
+  npcOffer,
+  unitValues,
+  onRemoveItem,
+  onLeftPanMeasured,
+  onRightPanMeasured,
+  hideNumbers = false,
+}: TradeScaleProps) => {
     //
     // ---- TRADE BALANCE LOGIC ----
     //
@@ -281,9 +282,11 @@ type TradeScaleProps = {
               {...wrapperProps}
             >
               <Image source={resourceIcons[res]} style={styles.itemIcon} />
-              <View style={styles.countCircle}>
-                <Text style={styles.countCircleText}>{count}</Text>
-              </View>
+              {!hideNumbers && (
+                <View style={styles.countCircle}>
+                  <Text style={styles.countCircleText}>{count}</Text>
+                </View>
+              )}
             </Wrapper>
           );
         });
