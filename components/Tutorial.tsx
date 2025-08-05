@@ -8,6 +8,9 @@ import {
     Image,
     Animated,
     TextInput,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView
 } from 'react-native';
 import { styles } from '../styles/styles';
 import {
@@ -191,7 +194,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         type: 'text-input',
         textInput: {
             prompt: 'Explain briefly why you think [SELECTED_ITEM] will make the effective trade good?',
-            placeholder: 'user text goes here',
+            placeholder: 'Type here',
         },
     },
 
@@ -373,7 +376,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     type: 'text-input',
                     textInput: {
                         prompt: `Explain briefly why was more useful than ?`,
-                        placeholder: 'Your explanation here...',
+                        placeholder: 'Type here',
                         // Store the icons in a custom property for rendering
                         comparisonIcons: {
                             selected: selectedItemData?.icon,
@@ -984,64 +987,164 @@ export const Tutorial: React.FC<TutorialProps> = ({
         if (isOutroMode) {
             const wordCount = countWords(currentOutroTextInput);
             const isValidInput = wordCount >= 3;
-
-            // Get the comparison icons from the slide config
             const comparisonIcons = (currentSlide.textInput as any)?.comparisonIcons;
 
             return (
-                <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
-                    <View style={{ maxWidth: 500, alignItems: 'center' }}>
-                        <View style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginBottom: 20
-                        }}>
-                            <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
-                                Explain briefly why
-                            </Text>
-                            {comparisonIcons?.selected && (
-                                <Image
-                                    source={comparisonIcons.selected}
+                <KeyboardAvoidingView
+                    style={tutorialStyles.tutorialSlide}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    pointerEvents="auto"
+                >
+                    <ScrollView
+                        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <View style={{ maxWidth: 500, alignItems: 'center', paddingVertical: 20 }}>
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 20
+                            }}>
+                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
+                                    Explain briefly why
+                                </Text>
+                                {comparisonIcons?.selected && (
+                                    <Image
+                                        source={comparisonIcons.selected}
+                                        style={{
+                                            width: 30,
+                                            height: 30,
+                                            marginLeft: 8,
+                                            marginRight: 8,
+                                            marginBottom: -4
+                                        }}
+                                        resizeMode="contain"
+                                    />
+                                )}
+                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
+                                    was more useful than
+                                </Text>
+                                {comparisonIcons?.other && (
+                                    <Image
+                                        source={comparisonIcons.other}
+                                        style={{
+                                            width: 30,
+                                            height: 30,
+                                            marginLeft: 8,
+                                            marginRight: 8,
+                                            marginBottom: -4
+                                        }}
+                                        resizeMode="contain"
+                                    />
+                                )}
+                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>?</Text>
+                            </View>
+
+                            <View style={{
+                                width: '100%',
+                                maxWidth: 400,
+                                marginVertical: 20,
+                                padding: 15,
+                                backgroundColor: '#f8f9fa',
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: '#e9ecef',
+                                height: 120,
+                            }}>
+                                <TextInput
                                     style={{
-                                        width: 30,
-                                        height: 30,
-                                        marginLeft: 8,
-                                        marginRight: 8,
-                                        marginBottom: -4  // Adjust vertical alignment
+                                        flex: 1,
+                                        fontSize: 14,
+                                        color: '#333',
+                                        textAlignVertical: 'top',
                                     }}
-                                    resizeMode="contain"
+                                    placeholder="Type here"
+                                    placeholderTextColor="#999"
+                                    value={currentOutroTextInput}
+                                    onChangeText={setCurrentOutroTextInput}
+                                    multiline={true}
+                                    numberOfLines={4}
                                 />
-                            )}
-                            <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
-                                was more useful than
+                            </View>
+
+                            <Text style={{
+                                fontSize: 12,
+                                color: isValidInput ? '#28a745' : '#dc3545',
+                                marginBottom: 15
+                            }}>
+                                {wordCount}/3 words minimum
                             </Text>
-                            {comparisonIcons?.other && (
-                                <Image
-                                    source={comparisonIcons.other}
-                                    style={{
-                                        width: 30,
-                                        height: 30,
-                                        marginLeft: 8,
-                                        marginRight: 8,
-                                        marginBottom: -4  // Adjust vertical alignment
-                                    }}
-                                    resizeMode="contain"
-                                />
-                            )}
-                            <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>?</Text>
+
+                            <TouchableOpacity
+                                onPress={nextSlide}
+                                disabled={!isValidInput}
+                                style={[
+                                    tutorialStyles.continueButton,
+                                    {
+                                        backgroundColor: isValidInput ? '#ff9500' : '#ccc',
+                                        opacity: isValidInput ? 1 : 0.6,
+                                        marginTop: 10
+                                    }
+                                ]}
+                            >
+                                <Text style={[
+                                    tutorialStyles.continueButtonText,
+                                    { color: isValidInput ? '#ffffff' : '#999' }
+                                ]}>
+                                    Continue
+                                </Text>
+                            </TouchableOpacity>
                         </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            );
+        }
+
+        // Tutorial text input
+        const itemSelectionSlide = TUTORIAL_SLIDES.find(slide => slide.type === 'item-selection');
+        const selectedItemIcon = itemSelectionSlide?.itemSelection?.items.find(
+            item => item.resource === selectedStartingItem?.resource
+        )?.icon;
+
+        const wordCount = countWords(userReasoning);
+        const isValidInput = wordCount >= 3;
+
+        return (
+            <KeyboardAvoidingView
+                style={tutorialStyles.tutorialSlide}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                pointerEvents="auto"
+            >
+                <ScrollView
+                    contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={{ maxWidth: 500, alignItems: 'center', paddingVertical: 20 }}>
+                        {selectedStartingItem && selectedItemIcon && (
+                            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                                <Image
+                                    source={selectedItemIcon}
+                                    style={{ width: 60, height: 60, marginBottom: 10 }}
+                                    resizeMode="contain"
+                                />
+                            </View>
+                        )}
+
+                        <Text style={[tutorialStyles.tutorialText, { marginBottom: 20 }]}>
+                            {currentSlide.textInput?.prompt.replace('[SELECTED_ITEM]', selectedStartingItem?.label || 'your choice')}
+                        </Text>
 
                         <View style={{
                             width: '100%',
                             maxWidth: 400,
-                            marginVertical: 30,
+                            marginVertical: 20,
                             padding: 15,
                             backgroundColor: '#f8f9fa',
                             borderRadius: 8,
                             borderWidth: 1,
                             borderColor: '#e9ecef',
-                            minHeight: 100,
+                            height: 120,
                         }}>
                             <TextInput
                                 style={{
@@ -1050,10 +1153,10 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                     color: '#333',
                                     textAlignVertical: 'top',
                                 }}
-                                placeholder={currentSlide.textInput?.placeholder}
-                                placeholderTextColor="#666"
-                                value={currentOutroTextInput}
-                                onChangeText={setCurrentOutroTextInput}
+                                placeholder="Type here"
+                                placeholderTextColor="#999"
+                                value={userReasoning}
+                                onChangeText={setUserReasoning}
                                 multiline={true}
                                 numberOfLines={4}
                             />
@@ -1062,7 +1165,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                         <Text style={{
                             fontSize: 12,
                             color: isValidInput ? '#28a745' : '#dc3545',
-                            marginBottom: 20
+                            marginBottom: 15
                         }}>
                             {wordCount}/3 words minimum
                         </Text>
@@ -1074,7 +1177,8 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                 tutorialStyles.continueButton,
                                 {
                                     backgroundColor: isValidInput ? '#ff9500' : '#ccc',
-                                    opacity: isValidInput ? 1 : 0.6
+                                    opacity: isValidInput ? 1 : 0.6,
+                                    marginTop: 10
                                 }
                             ]}
                         >
@@ -1086,92 +1190,8 @@ export const Tutorial: React.FC<TutorialProps> = ({
                             </Text>
                         </TouchableOpacity>
                     </View>
-                </View>
-            );
-        }
-
-
-        // Tutorial text input (for initial item reasoning)
-        const itemSelectionSlide = TUTORIAL_SLIDES.find(slide => slide.type === 'item-selection');
-        const selectedItemIcon = itemSelectionSlide?.itemSelection?.items.find(
-            item => item.resource === selectedStartingItem?.resource
-        )?.icon;
-
-        const wordCount = countWords(userReasoning);
-        const isValidInput = wordCount >= 3;
-
-        return (
-            <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
-                <View style={{ maxWidth: 500, alignItems: 'center' }}>
-                    {selectedStartingItem && selectedItemIcon && (
-                        <View style={{ alignItems: 'center', marginBottom: 30 }}>
-                            <Image
-                                source={selectedItemIcon}
-                                style={{ width: 80, height: 80, marginBottom: 15 }}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    )}
-
-                    <Text style={tutorialStyles.tutorialText}>
-                        {currentSlide.textInput?.prompt.replace('[SELECTED_ITEM]', selectedStartingItem?.label || 'your choice')}
-                    </Text>
-
-                    <View style={{
-                        width: '100%',
-                        maxWidth: 400,
-                        marginVertical: 30,
-                        padding: 15,
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: '#e9ecef',
-                        minHeight: 100,
-                    }}>
-                        <TextInput
-                            style={{
-                                flex: 1,
-                                fontSize: 14,
-                                color: '#333',
-                                textAlignVertical: 'top',
-                            }}
-                            placeholder={currentSlide.textInput?.placeholder}
-                            placeholderTextColor="#666"
-                            value={userReasoning}
-                            onChangeText={setUserReasoning}
-                            multiline={true}
-                            numberOfLines={4}
-                        />
-                    </View>
-
-                    <Text style={{
-                        fontSize: 12,
-                        color: isValidInput ? '#28a745' : '#dc3545',
-                        marginBottom: 20
-                    }}>
-                        {wordCount}/3 words minimum
-                    </Text>
-
-                    <TouchableOpacity
-                        onPress={nextSlide}
-                        disabled={!isValidInput}
-                        style={[
-                            tutorialStyles.continueButton,
-                            {
-                                backgroundColor: isValidInput ? '#ff9500' : '#ccc',
-                                opacity: isValidInput ? 1 : 0.6
-                            }
-                        ]}
-                    >
-                        <Text style={[
-                            tutorialStyles.continueButtonText,
-                            { color: isValidInput ? '#ffffff' : '#999' }
-                        ]}>
-                            Continue
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         );
     };
 

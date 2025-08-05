@@ -768,41 +768,45 @@ export default function App() {
     }
   }, [eventLock, activeEvent, systemEventQueue.length]);
 
-  // Listen for keyboard events for debug cheat
+  // Debug cheat codes for testing (web only)
   useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === '5' || event.key === '4') {
-        setDebugKeySequence(prev => {
-          const newSeq = prev + event.key;
-          // Keep only last 3 characters
-          return newSeq.slice(-3);
-        });
-      } else {
+    // Check if we're in a web environment
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      const handleKeyPress = (event: KeyboardEvent) => {
+        if (event.key === '5' || event.key === '4') {
+          setDebugKeySequence(prev => {
+            const newSeq = prev + event.key;
+            // Keep only last 3 characters
+            return newSeq.slice(-3);
+          });
+        } else {
+          setDebugKeySequence('');
+        }
+      };
+
+      // Check if sequence matches our cheat codes
+      if (debugKeySequence === '555') {
+        // Skip directly to outro for testing
+        setShowTutorial(false);
+        setShowOutro(false);
+        setGameEvent('victory');
+        setDebugKeySequence('');
+      } else if (debugKeySequence === '444') {
+        // Give 10 tools to inventory
+        setResources(prev => ({
+          ...prev,
+          tools: (prev.tools || 0) + 10
+        }));
+        console.log('Debug: Added 10 tools to inventory');
         setDebugKeySequence('');
       }
-    };
 
-    // Check if sequence matches our cheat codes
-    if (debugKeySequence === '555') {
-      // Skip directly to outro for testing
-      setShowTutorial(false);
-      setShowOutro(false);
-      setGameEvent('victory');
-      setDebugKeySequence('');
-    } else if (debugKeySequence === '444') {
-      // Give 10 tools to inventory
-      setResources(prev => ({
-        ...prev,
-        tools: (prev.tools || 0) + 10
-      }));
-      console.log('Debug: Added 10 tools to inventory');
-      setDebugKeySequence('');
+      window.addEventListener('keydown', handleKeyPress);
+      return () => {
+        window.removeEventListener('keydown', handleKeyPress);
+      };
     }
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
   }, [debugKeySequence]);
-
 
   // Called when player taps on an NPC to initiate trade
   const handleNpcPress = (index: number) => {
