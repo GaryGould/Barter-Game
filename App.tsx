@@ -1,5 +1,6 @@
 //app.tsx
 import React, { useState, useRef, useEffect } from 'react';
+import { preloadAllImages, IMAGE_SOURCES } from './imageCache';
 import {
   View,
   Text,
@@ -7,7 +8,9 @@ import {
   useWindowDimensions,
   StyleSheet,
   Image,
-  Animated
+  Animated,
+  Platform
+
 
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -70,28 +73,17 @@ type Trade = {
 type DisplayIcon = ResourceType | 'brokenpottery';
 
 const resourceIcons: Record<DisplayIcon, any> = {
-  salt: require('./assets/Icons/Salt.png'),
-  apples: require('./assets/Icons/apple.png'),
-  tools: require('./assets/Icons/Tools.png'),
-  pottery: require('./assets/Icons/pottery.png'),
-  shells: require('./assets/Icons/shell.png'),
-  cow: require('./assets/Icons/cow.png'),
-  brokenpottery: require('./assets/Icons/brokenpottery.png'),
+  salt: IMAGE_SOURCES.salt,
+  apples: IMAGE_SOURCES.apple,
+  tools: IMAGE_SOURCES.tools,
+  pottery: IMAGE_SOURCES.pottery,
+  shells: IMAGE_SOURCES.shells,
+  cow: IMAGE_SOURCES.cow,
+  brokenpottery: IMAGE_SOURCES.brokenpottery,
 };
 
 
-// --- Warm up (decode) images once so they don't pop in late on first use ---
-const WarmDecoder = React.memo(() => (
-  <View style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>
-    {/* Scale assets that appear inside the trade modal */}
-    <Image source={require('./assets/Scale/scaleBeam.png')} style={{ width: 1, height: 1 }} />
-    <Image source={require('./assets/Scale/scalePan.png')} style={{ width: 1, height: 1 }} />
-    {/* Resource icons used in pans and flying animations */}
-    {Object.values(resourceIcons).map((src, i) => (
-      <Image key={i} source={src} style={{ width: 1, height: 1 }} />
-    ))}
-  </View>
-));
+
 
 //modify values when traders prefer a certain good
 type PreferenceLevel = 'favored' | 'neutral' | 'disliked';
@@ -285,6 +277,8 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 export default function App() {
   // --- Tutorial State ---
   const [showTutorial, setShowTutorial] = useState(true);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+
 
   // --- Tutorial Data Storage ---
   const [tutorialData, setTutorialData] = useState<{
@@ -432,14 +426,13 @@ export default function App() {
     const initialGoods = availableGoods.slice(0, 3);
 
     const spriteMap: Record<ResourceType, any> = {
-      salt: require('./assets/npc_salt.png'),
-      apples: require('./assets/npc_apples.png'),
-      tools: require('./assets/npc_tools.png'),
-      pottery: require('./assets/npc_pottery.png'),
-      shells: require('./assets/npc_shells.png'),
-      cow: require('./assets/Icons/cow.png'),
+      salt: IMAGE_SOURCES.npc_salt,
+      apples: IMAGE_SOURCES.npc_apples,
+      tools: IMAGE_SOURCES.npc_tools,
+      pottery: IMAGE_SOURCES.npc_pottery,
+      shells: IMAGE_SOURCES.npc_shells,
+      cow: IMAGE_SOURCES.cow,
     };
-
     const newNPCs: NPC[] = initialGoods.map((selling, i) => ({
       id: i + 1,
       key: `npc-${i + 1}-${Date.now()}`,
@@ -1144,14 +1137,14 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     // ignore recently offered goods
     setRecentlyOfferedGoods(prev => [selling, ...prev].slice(0, 2));
 
-    const spriteMap: Record<ResourceType, any> = {
-      salt: require('./assets/npc_salt.png'),
-      apples: require('./assets/npc_apples.png'),
-      tools: require('./assets/npc_tools.png'),
-      pottery: require('./assets/npc_pottery.png'),
-      shells: require('./assets/npc_shells.png'),
-      cow: require('./assets/Icons/cow.png')
-    };
+      const spriteMap: Record<ResourceType, any> = {
+        salt: IMAGE_SOURCES.npc_salt,
+        apples: IMAGE_SOURCES.npc_apples,
+        tools: IMAGE_SOURCES.npc_tools,
+        pottery: IMAGE_SOURCES.npc_pottery,
+        shells: IMAGE_SOURCES.npc_shells,
+        cow: IMAGE_SOURCES.cow
+      };
 
     const newNpc: NPC = {
       id: Math.floor(Math.random() * 10000),
@@ -1407,7 +1400,7 @@ const renderNpcRow = () => (
                 >
                   <View style={{ position: 'relative' }}>
                     <ResourceDisplay name={res} amount={resources[res]} />
-                    {res === 'apples' && hasSeenAppleTrade && resources.apples > 0 && (
+                    {res === 'apples' && hasSeenAppleTrade && (resources.apples > 0 || (playerOffer.apples || 0) > 0) && (
                       <View style={{ position: 'absolute', bottom: -2, right: -2 }}>
                         <PieTimer
                           progress={freezeApplePieAtZero ? 0 : appleTimer}
@@ -1490,8 +1483,14 @@ const renderNpcRow = () => (
     });
   };
   const spawnSpecialNpc = () => {
+    // Cancel any existing animation before starting new one
+    if (specialNpcRequestRef.current) {
+      cancelAnimationFrame(specialNpcRequestRef.current);
+      specialNpcRequestRef.current = null;
+    }
+
     const direction: Direction = Math.random() < 0.5 ? 'left' : 'right';
-    const sprite = require('./assets/npc_special.png');
+    const sprite = IMAGE_SOURCES.npc_special;
     const SPRITE_WIDTH = 80;
     const BUFFER = SPRITE_WIDTH + 20;
 
@@ -1503,10 +1502,14 @@ const renderNpcRow = () => (
     specialNpcEnd.current = endX;
     specialNpcAnimX.setValue(startX);
     specialNpcCurrentX.current = startX;
+
+    // Clean up listeners before adding new ones
     specialNpcAnimX.removeAllListeners();
     specialNpcAnimX.addListener(({ value }) => {
       specialNpcCurrentX.current = value;
-    });    specialNpcPaused.current = false;
+    });
+
+    specialNpcPaused.current = false;
     specialNpcLastTimestamp.current = null;
 
     setSpecialNpc({ x: specialNpcAnimX, direction, sprite });
@@ -1523,7 +1526,7 @@ const renderNpcRow = () => (
         return;
       }
 
-      const dt = (timestamp - specialNpcLastTimestamp.current) / 1000; // seconds
+      const dt = (timestamp - specialNpcLastTimestamp.current) / 1000;
       specialNpcLastTimestamp.current = timestamp;
 
       const current = specialNpcCurrentX.current;
@@ -1535,6 +1538,13 @@ const renderNpcRow = () => (
       if (finished) {
         setSpecialNpc(null);
         specialNpcAnimX.removeAllListeners();
+
+        // Properly cleanup animation frame
+        if (specialNpcRequestRef.current) {
+          cancelAnimationFrame(specialNpcRequestRef.current);
+          specialNpcRequestRef.current = null;
+        }
+
         setTimeout(spawnSpecialNpc, 6000);
         return;
       }
@@ -1903,9 +1913,64 @@ const renderNpcRow = () => (
 
 
 
+  // Image loading - MUST be after all hooks
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Web doesn't need prefetch
+      setImagesLoaded(true);
+    } else {
+      preloadAllImages().then(() => {
+        setImagesLoaded(true);
+      });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (specialNpcRequestRef.current) {
+        cancelAnimationFrame(specialNpcRequestRef.current);
+        specialNpcRequestRef.current = null;
+      }
+      if (worldEventTimerRef.current) {
+        clearTimeout(worldEventTimerRef.current);
+        worldEventTimerRef.current = null;
+      }
+      if (holdIntervalRef.current) {
+        holdIntervalRef.current();
+        holdIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  if (!imagesLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <Text>Loading resources...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.containerWrapper}>
-      <WarmDecoder />
+      <View style={{
+        position: 'absolute',
+        left: -500,  // Off screen but still "visible" to React Native
+        top: -500,
+        width: 500,
+        height: 500,
+      }}>
+        {Object.values(IMAGE_SOURCES).map((source, index) => (
+          <Image
+            key={`preload-${index}`}
+            source={source}
+            style={{
+              width: 80,  // Use real sizes
+              height: 80,
+              margin: 5,
+            }}
+            fadeDuration={0}
+          />
+        ))}
+      </View>
       <FlyingResourceManager ref={flyingRef} />
 
       {/* Tutorial - Show first before main game */}

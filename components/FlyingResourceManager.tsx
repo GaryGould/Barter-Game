@@ -1,16 +1,16 @@
 // components/FlyingResourceManager.tsx
 import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import { IMAGE_SOURCES } from '../imageCache';
 import { Animated, Image, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing } from 'react-native';
 import { ResourceType } from '../App';
 
 const resourceIcons: Record<ResourceType, any> = {
-    salt: require('../assets/Icons/Salt.png'),
-    apples: require('../assets/Icons/apple.png'),
-    tools: require('../assets/Icons/Tools.png'),
-    pottery: require('../assets/Icons/pottery.png'),
-    shells: require('../assets/Icons/shell.png'),
-    cow: require('../assets/Icons/cow.png')
-
+    salt: IMAGE_SOURCES.salt,
+    apples: IMAGE_SOURCES.apple,
+    tools: IMAGE_SOURCES.tools,
+    pottery: IMAGE_SOURCES.pottery,
+    shells: IMAGE_SOURCES.shells,
+    cow: IMAGE_SOURCES.cow
 };
 
 type FlyingResource = {
@@ -85,7 +85,22 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
     const idRef = useRef(0);
     const [catchables, setCatchables] = useState<CatchableDrop[]>([]);
     const screenH = Dimensions.get('window').height;
-
+    // Cleanup animations on unmount
+    React.useEffect(() => {
+        return () => {
+            flying.forEach(f => {
+                f.anim.stopAnimation();
+                f.opacity.stopAnimation();
+            });
+            labels.forEach(l => {
+                l.anim.stopAnimation();
+                l.opacity.stopAnimation();
+            });
+            catchables.forEach(c => {
+                c.stop?.();
+            });
+        };
+    }, []);
     // helper: rising + fading label
     const spawnRisingLabel = (
         text: string,

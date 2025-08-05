@@ -343,20 +343,31 @@ export const Tutorial: React.FC<TutorialProps> = ({
     // ========================================================================
 
     React.useEffect(() => {
-        // Preload all tutorial images to prevent pop-in
-        const imagesToPreload = [
-            require('../assets/Icons/apple.png'),
-            require('../assets/Icons/Salt.png'),
-            require('../assets/Icons/Tools.png'),
-            require('../assets/Icons/pottery.png'),
-            require('../assets/Icons/shell.png'),
-            require('../assets/Icons/cow.png'),
-        ];
+        // Only preload images on mobile platforms (not web)
+        if (Platform.OS !== 'web') {
+            const imagesToPreload = [
+                require('../assets/Icons/apple.png'),
+                require('../assets/Icons/Salt.png'),
+                require('../assets/Icons/Tools.png'),
+                require('../assets/Icons/pottery.png'),
+                require('../assets/Icons/shell.png'),
+                require('../assets/Icons/cow.png'),
+                require('../assets/Icons/brokenpottery.png'),
+                require('../assets/npc_salt.png'),
+                require('../assets/npc_apples.png'),
+                require('../assets/npc_tools.png'),
+                require('../assets/npc_pottery.png'),
+                require('../assets/npc_shells.png'),
+                require('../assets/npc_special.png'),
+                require('../assets/Scale/scaleBeam.png'),
+                require('../assets/Scale/scalePan.png'),
+            ];
 
-        // Prefetch all images
-        imagesToPreload.forEach(image => {
-            Image.prefetch(Image.resolveAssetSource(image).uri);
-        });
+            // Prefetch all images
+            imagesToPreload.forEach(image => {
+                Image.prefetch(Image.resolveAssetSource(image).uri);
+            });
+        }
     }, []);
     // ========================================================================
     // OUTRO SLIDE GENERATION

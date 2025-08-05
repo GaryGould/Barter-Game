@@ -1,14 +1,16 @@
 
 import React, { useRef, useEffect } from 'react';
   import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { IMAGE_SOURCES } from '../imageCache';
+
 import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { CLAMPED_WIDTH } from '../normalize';
   import { ResourceType } from '../App';
   import { resourceIcons } from '../resourceRegistry';
 
   // The size and layout of the scale and pans
-  const beamImage = require('../assets/Scale/scaleBeam.png');
-  const panImage = require('../assets/Scale/scalePan.png');
+const beamImage = IMAGE_SOURCES.scaleBeam;
+const panImage = IMAGE_SOURCES.scalePan;
 
 
   const BEAM_WIDTH = CLAMPED_WIDTH * 0.9;
@@ -79,15 +81,18 @@ export const TradeScale = ({
     
     // smooth, interruptible animation of the beam tilt
     const animatedRotation = useRef(new Animated.Value(rotation)).current;
-    useEffect(() => {
-      // cancel any in-flight tween
+  useEffect(() => {
+    // Only animate if value actually changed
+    const currentValue = (animatedRotation as any)._value;
+    if (Math.abs(currentValue - rotation) > 0.01) {
       animatedRotation.stopAnimation();
       Animated.timing(animatedRotation, {
         toValue: rotation,
         duration: 300,
         useNativeDriver: true,
       }).start();
-    }, [rotation]);
+    }
+  }, [rotation]);
     //
     // ---- PAN POSITIONING ----
     //
