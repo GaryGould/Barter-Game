@@ -396,7 +396,42 @@ export default function App() {
 
       // Update the player's resources to start with only their chosen item
       setResources(startingInventory);
+
+      // Generate initial NPCs that don't sell the player's chosen resource
+      generateInitialNPCs(data.selectedStartingItem.resource);
     }
+  }, []);
+
+  // --- Generate initial NPCs excluding player's chosen resource ---
+  // --- Generate initial NPCs excluding player's chosen resource ---
+  const generateInitialNPCs = React.useCallback((excludeResource: ResourceType) => {
+    const allGoods: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
+    const availableGoods = allGoods.filter(good => good !== excludeResource);
+
+    // Take first 3 available goods
+    const initialGoods = availableGoods.slice(0, 3);
+
+    const spriteMap: Record<ResourceType, any> = {
+      salt: require('./assets/npc_salt.png'),
+      apples: require('./assets/npc_apples.png'),
+      tools: require('./assets/npc_tools.png'),
+      pottery: require('./assets/npc_pottery.png'),
+      shells: require('./assets/npc_shells.png'),
+      cow: require('./assets/Icons/cow.png'),
+    };
+
+    const newNPCs: NPC[] = initialGoods.map((selling, i) => ({
+      id: i + 1,
+      key: `npc-${i + 1}-${Date.now()}`,
+      sprite: spriteMap[selling],
+      selling,
+      visible: true,
+      direction: (Math.random() < 0.5 ? 'left' : 'right') as Direction,
+      speed: Math.floor(200 + Math.random() * 100),
+      isExiting: false,
+    }));
+
+    setNpcs(newNPCs);
   }, []);
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
   const handleAppleSpoilage = React.useCallback(() => {
@@ -653,33 +688,8 @@ export default function App() {
     return values as Record<ResourceType, number>;
   }
   
-  // npc traders
-  const [npcs, setNpcs] = useState<NPC[]>(() => {
-    const initialGoods: ResourceType[] = ['salt', 'pottery', 'apples'];
-    const spriteMap: Record<ResourceType, any> = {
-      salt: require('./assets/npc_salt.png'),
-      apples: require('./assets/npc_apples.png'),
-      tools: require('./assets/npc_tools.png'),
-      pottery: require('./assets/npc_pottery.png'),
-      shells: require('./assets/npc_shells.png'),
-      cow: require('./assets/Icons/cow.png'),
-    };
-
-    // Sellers currently shown on screen (ignore any trader that's exiting)
-    const getVisibleSelling = (list: NPC[]) =>
-      new Set(list.filter(n => n.visible && !n.isExiting).map(n => n.selling));
-
-    return initialGoods.map((selling, i) => ({
-      id: i + 1,
-      key: `npc-${i + 1}`,
-      sprite: spriteMap[selling],
-      selling,
-      visible: true,
-      direction: Math.random() < 0.5 ? 'left' : 'right',
-      speed: Math.floor(200 + Math.random() * 100),
-      isExiting: false,
-    }));
-  });
+  // npc traders - will be populated after tutorial
+  const [npcs, setNpcs] = useState<NPC[]>([]);
   
   
 
