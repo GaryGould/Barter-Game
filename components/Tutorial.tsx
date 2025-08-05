@@ -92,7 +92,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 1: Introduction to pricing with animation
     {
         type: 'text',
-        content: 'Today, prices make buying goods simple.',
+        content: 'Money makes buying goods simple and precise.',
         images: [
             { src: require('../assets/Icons/apple.png'), text: '= $1' }
         ],
@@ -155,14 +155,14 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
             startingInventory: { salt: 0, apples: 1, tools: 0, pottery: 1, shells: 1, cow: 0 },
             likes: ['apples'],
             dislikes: ['shells', 'pottery'],
-            instructionText: 'This trader only values apples highly',
+            instructionText: '',
         },
     },
 
     // Slide 6: Transition to master trader
     {
         type: 'text',
-        content: 'Alright, now it\'s time to become a master trader',
+        content: 'Let\'s see if you can become a master trader',
     },
 
     // Slide 7: Item selection for starting the real game
@@ -284,6 +284,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
     // Post-tutorial selection state
     const [selectedStartingItem, setSelectedStartingItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
     const [userReasoning, setUserReasoning] = useState<string>('');
+    const [tempSelectedItem, setTempSelectedItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
 
     // Position tracking for animations
     const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
@@ -826,43 +827,76 @@ export const Tutorial: React.FC<TutorialProps> = ({ onComplete, flyingRef, inven
                         marginVertical: 30,
                         maxWidth: 400
                     }}>
-                        {currentSlide.itemSelection.items.map((item, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                onPress={() => {
-                                    setSelectedStartingItem({
-                                        resource: item.resource,
-                                        quantity: item.quantity,
-                                        label: item.label
-                                    });
-                                    nextSlide();
-                                }}
-                                style={{
-                                    alignItems: 'center',
-                                    padding: 15,
-                                    borderRadius: 8,
-                                    backgroundColor: '#f8f9fa',
-                                    borderWidth: 1,
-                                    borderColor: '#e9ecef',
-                                    minWidth: 100,
-                                }}
-                                activeOpacity={0.7}
-                            >
-                                <Image
-                                    source={item.icon}
-                                    style={{ width: 50, height: 50, marginBottom: 8 }}
-                                    resizeMode="contain"
-                                />
-                                <Text style={{ fontSize: 14, fontWeight: '600', color: '#000', textAlign: 'center' }}>
-                                    {item.label}
-                                </Text>
-                                <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                                    x {item.quantity}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                        {currentSlide.itemSelection.items.map((item, index) => {
+                            const isSelected = tempSelectedItem?.resource === item.resource;
+                            return (
+                                <TouchableOpacity
+                                    key={index}
+                                    onPress={() => {
+                                        setTempSelectedItem({
+                                            resource: item.resource,
+                                            quantity: item.quantity,
+                                            label: item.label
+                                        });
+                                    }}
+                                    style={{
+                                        alignItems: 'center',
+                                        padding: 15,
+                                        borderRadius: 8,
+                                        backgroundColor: isSelected ? '#fff3cd' : '#f8f9fa',
+                                        borderWidth: 2,
+                                        borderColor: isSelected ? '#ff9500' : '#e9ecef',
+                                        minWidth: 100,
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Image
+                                        source={item.icon}
+                                        style={{ width: 50, height: 50, marginBottom: 8 }}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={{
+                                        fontSize: 14,
+                                        fontWeight: isSelected ? '700' : '600',
+                                        color: '#000',
+                                        textAlign: 'center'
+                                    }}>
+                                        {item.label}
+                                    </Text>
+                                    <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                        x {item.quantity}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
                 )}
+
+                {/* Barter Button */}
+                <TouchableOpacity
+                    onPress={() => {
+                        if (tempSelectedItem) {
+                            setSelectedStartingItem(tempSelectedItem);
+                            nextSlide();
+                        }
+                    }}
+                    disabled={!tempSelectedItem}
+                    style={{
+                        backgroundColor: tempSelectedItem ? '#28a745' : '#ccc',
+                        paddingVertical: 12,
+                        paddingHorizontal: 32,
+                        borderRadius: 8,
+                        marginTop: 20,
+                    }}
+                >
+                    <Text style={{
+                        color: tempSelectedItem ? '#ffffff' : '#999',
+                        fontWeight: '700',
+                        fontSize: 16,
+                    }}>
+                        Barter!
+                    </Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
