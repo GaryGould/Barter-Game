@@ -1,7 +1,9 @@
 // components/FlyingResourceManager.tsx
 import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import { IMAGE_SOURCES } from '../imageCache';
-import { Animated, Image, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing } from 'react-native';
+import { Animated, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing } from 'react-native';
+import { Image } from 'expo-image';
+
 import { ResourceType } from '../App';
 
 const resourceIcons: Record<ResourceType, any> = {
@@ -398,7 +400,8 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                         <Image
                             source={resourceIcons[name]}
                             style={{ width: 58, height: 58 }}
-                            resizeMode="contain"
+                            contentFit="contain"
+                            transition={0}
                         />
                     </TouchableOpacity>
                 </Animated.View>

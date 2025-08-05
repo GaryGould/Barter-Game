@@ -17,7 +17,8 @@
     "react-native-web": "^0.20.0",
     "@expo/metro-runtime": "~5.0.4",
     "react-native-svg": "15.11.2",
-    "expo-updates": "~0.28.17"
+    "expo-updates": "~0.28.17",
+    "expo-image": "~2.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -7,12 +7,10 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   StyleSheet,
-  Image,
   Animated,
   Platform
-
-
 } from 'react-native';
+import { Image } from 'expo-image';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { nextFrame, startFrameLoop } from './utils/safeTimers';
 
@@ -275,9 +273,10 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 
 
 export default function App() {
+  // --- Image Loading ---
+  const [imagesReady, setImagesReady] = useState(false);
   // --- Tutorial State ---
   const [showTutorial, setShowTutorial] = useState(true);
-  const [imagesLoaded, setImagesLoaded] = useState(false);
 
 
   // --- Tutorial Data Storage ---
@@ -1913,18 +1912,8 @@ const renderNpcRow = () => (
 
 
 
-  // Image loading - MUST be after all hooks
+  // Cleanup on unmount
   React.useEffect(() => {
-    if (Platform.OS === 'web') {
-      // Web doesn't need prefetch
-      setImagesLoaded(true);
-    } else {
-      preloadAllImages().then(() => {
-        setImagesLoaded(true);
-      });
-    }
-
-    // Cleanup on unmount
     return () => {
       if (specialNpcRequestRef.current) {
         cancelAnimationFrame(specialNpcRequestRef.current);
@@ -1940,14 +1929,6 @@ const renderNpcRow = () => (
       }
     };
   }, []);
-
-  if (!imagesLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <Text>Loading resources...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.containerWrapper}>
@@ -1967,7 +1948,8 @@ const renderNpcRow = () => (
               height: 80,
               margin: 5,
             }}
-            fadeDuration={0}
+            transition={0}
+            contentFit="contain"
           />
         ))}
       </View>
@@ -2040,15 +2022,16 @@ const renderNpcRow = () => (
             }}
           >
             <TouchableOpacity onPress={handleSpecialNpcPress}>
-              <Image
-                source={specialNpc.sprite}
-                style={{
-                  width: 80,
-                  height: 80,
-                  transform: specialNpc.direction === 'left' ? [{ scaleX: -1 }] : [{ scaleX: 1 }],
-                }}
-                resizeMode="contain"
-              />
+                        <Image
+                          source={specialNpc.sprite}
+                          style={{
+                            width: 80,
+                            height: 80,
+                            transform: specialNpc.direction === 'left' ? [{ scaleX: -1 }] : [{ scaleX: 1 }],
+                          }}
+                          contentFit="contain"
+                          transition={0}
+                        />
             </TouchableOpacity>
           </Animated.View>
 

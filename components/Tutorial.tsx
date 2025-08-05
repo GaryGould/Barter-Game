@@ -5,13 +5,14 @@ import {
     Text,
     TouchableOpacity,
     useWindowDimensions,
-    Image,
     Animated,
     TextInput,
     KeyboardAvoidingView,
     Platform,
     ScrollView
 } from 'react-native';
+import { Image } from 'expo-image';
+
 import { styles } from '../styles/styles';
 import {
     TOTAL_SCENE_WIDTH,
@@ -365,7 +366,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
             // Prefetch all images
             imagesToPreload.forEach(image => {
-                Image.prefetch(Image.resolveAssetSource(image).uri);
+                Image.prefetch(image);
             });
         }
     }, []);
@@ -641,7 +642,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
                     {currentSlide.images && currentSlide.images.map((img, index) => (
                         <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
-                            <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} resizeMode="contain" />
+                            <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} contentFit="contain" transition={0} />
                             <Text style={{ fontSize: 24, color: '#000', fontWeight: '600' }}>{img.text}</Text>
                         </View>
                     ))}
@@ -653,7 +654,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                             </Text>
                             {currentSlide.animatedContent.images && currentSlide.animatedContent.images.map((img, index) => (
                                 <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
-                                    <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} resizeMode="contain" />
+                                    <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} contentFit="contain" transition={0} />
                                     <Text style={{ fontSize: 24, color: '#000', fontWeight: '600' }}>{img.text}</Text>
                                 </View>
                             ))}
@@ -664,18 +665,18 @@ export const Tutorial: React.FC<TutorialProps> = ({
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 40 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }}>likes</Text>
-                                <Image source={currentSlide.preferences.likes} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                                <Image source={currentSlide.preferences.likes} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }}>dislikes</Text>
                                 {Array.isArray(currentSlide.preferences.dislikes) ? (
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
                                         {currentSlide.preferences.dislikes.map((dislike, index) => (
-                                            <Image key={index} source={dislike} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                                            <Image key={index} source={dislike} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
                                         ))}
                                     </View>
                                 ) : (
-                                    <Image source={currentSlide.preferences.dislikes} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                                    <Image source={currentSlide.preferences.dislikes} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
                                 )}
                             </View>
                         </View>
@@ -733,8 +734,8 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     <Image
                         source={item}
                         style={{ width: 40, height: 40 }}
-                        resizeMode="contain"
-                    />
+                        contentFit="contain" transition={0}
+                        />
                     {currentSlide.animatedContent?.chain && index < currentSlide.animatedContent.chain.length - 1 && (
                         <Text style={{ fontSize: 24, color: '#000', fontWeight: '600', marginHorizontal: 10 }}>
                             &lt;
@@ -751,9 +752,9 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
                     {currentSlide.comparison && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 30 }}>
-                            <Image source={currentSlide.comparison.left} style={{ width: 50, height: 50 }} resizeMode="contain" />
+                            <Image source={currentSlide.comparison.left} style={{ width: 50, height: 50 }} contentFit="contain" transition={0} />
                             <Text style={{ fontSize: 32, color: '#000', fontWeight: '600', marginHorizontal: 20 }}>&lt;</Text>
-                            <Image source={currentSlide.comparison.right} style={{ width: 50, height: 50 }} resizeMode="contain" />
+                            <Image source={currentSlide.comparison.right} style={{ width: 50, height: 50 }} contentFit="contain" transition={0} />
                         </View>
                     )}
 
@@ -970,7 +971,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                         <Image
                                             source={item.icon}
                                             style={{ width: 50, height: 50, marginBottom: 8 }}
-                                            resizeMode="contain"
+                                            contentFit="contain" transition={0}
                                         />
                                         <Text style={{
                                             fontSize: 14,
@@ -1051,7 +1052,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                             marginRight: 8,
                                             marginBottom: -4
                                         }}
-                                        resizeMode="contain"
+                                        contentFit="contain" transition={0}
                                     />
                                 )}
                                 <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
@@ -1067,7 +1068,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                             marginRight: 8,
                                             marginBottom: -4
                                         }}
-                                        resizeMode="contain"
+                                        contentFit="contain" transition={0}
                                     />
                                 )}
                                 <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>?</Text>
@@ -1158,7 +1159,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                 <Image
                                     source={selectedItemIcon}
                                     style={{ width: 60, height: 60, marginBottom: 10 }}
-                                    resizeMode="contain"
+                                    contentFit="contain" transition={0}
                                 />
                             </View>
                         )}

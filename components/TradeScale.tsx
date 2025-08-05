@@ -1,6 +1,7 @@
 
 import React, { useRef, useEffect } from 'react';
-  import { View, Image, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { IMAGE_SOURCES } from '../imageCache';
 
 import { nextFrame, startFrameLoop } from '../utils/safeTimers';
@@ -286,7 +287,7 @@ export const TradeScale = ({
               style={styles.itemWithCount}
               {...wrapperProps}
             >
-              <Image source={resourceIcons[res]} style={styles.itemIcon} />
+              <Image source={resourceIcons[res]} style={styles.itemIcon} contentFit="contain" transition={0} />
               {!hideNumbers && (
                 <View style={styles.countCircle}>
                   <Text style={styles.countCircleText}>{count}</Text>
