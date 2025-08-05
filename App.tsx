@@ -153,7 +153,7 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 
 
 // how often to trigger the shell event
-const SHELL_TRADE_INTERVAL = 8;
+const SHELL_TRADE_INTERVAL = 9;
 // fraction of apple‐pie decremented per trade
 const APPLE_DECAY_STEP = 0.20;
 
@@ -299,6 +299,7 @@ export default function App() {
   // Shell cadence: every 10 trades (accept or decline)
   const totalTradesRef = useRef(0);
   const shellDueRef = useRef(false);             // true when a shell event is due to run
+  const shellEventCountRef = useRef(0);  // Add this with your other useRef declarations
 
 
   //flying item animation
@@ -434,9 +435,9 @@ export default function App() {
     setNpcs(newNPCs);
   }, []);
   // --- Apple spoilage handler (runs when pie animation actually lands at 0) ---
-  const handleAppleSpoilage = React.useCallback(() => {
+  const handleAppleSpoilage = React.useCallback((overrideAppleCount?: number) => {
     const invRef = inventoryRefs.current.apples;
-    const applesNow = resources.apples || 0;
+    const applesNow = overrideAppleCount ?? (resources.apples || 0);
     if (applesNow <= 0) return;
 
     // Choose a random integer strictly greater than 1/4 and strictly less than 1/2.
@@ -547,14 +548,15 @@ export default function App() {
       if (involvesApples && !hasSeenAppleTrade) {
         setHasSeenAppleTrade(true);
 
-        // Only show the intro bubble if we have apples after the trade (so it appears next to something visible).
-        const applesNow = resources.apples || 0;
-        if (applesNow > 0) {
+        // Check total apples (inventory + what was offered) to decide if we should show intro
+        const totalApples = (resources.apples || 0) + (playerOffer['apples'] || 0);
+
+        // Show intro if we have/had apples (even if they're all in the pan now)
+        if (totalApples > 0 || trade.give === 'apples') {
           const invRef = inventoryRefs.current.apples;
           if (invRef && typeof (invRef as any).measureInWindow === 'function') {
             (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
               const start = { x: width / 2, y: y + h / 2 };
-              // Reuse your flying text method + timings
               flyingRef.current?.riseLabel(
                 'your fruit is starting to rot',
                 start,
@@ -610,6 +612,7 @@ export default function App() {
       willAppleHitZero: boolean; // computed before we mutate appleTimer
       startPotteryDrop?: () => void; // kicks off the catch mini-event (sets/clears eventLock inside)
       requestShellNow?: () => void;  // fire shell event immediately
+      totalApples?: number;
     }
   ) => {
     if (tradeEventActiveRef.current) return true;
@@ -622,7 +625,7 @@ export default function App() {
       suppressPieOnDepletedOnceRef.current = true;
 
       // Inline: replicate the onDepleted visuals/timers
-      handleAppleSpoilage();
+      handleAppleSpoilage(opts.totalApples);
       setFreezeApplePieAtZero(true);
       setPieShouldInstantJumpToOne(true);
       setAppleTimer(1);
@@ -754,7 +757,8 @@ export default function App() {
 
     // Choose different give/want resources
     const npc = npcs[index];
-    const give: ResourceType = npc.selling;    let want: ResourceType = give;
+    const give: ResourceType = npc.selling;
+    let want: ResourceType = give;
     while (want === give) {
       want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     }
@@ -767,7 +771,27 @@ export default function App() {
     const likes: ResourceType[] = [];
     const dislikes: ResourceType[] = [];
 
-    // Pick likes first
+    // Every other trade, guarantee one liked good is in player's inventory
+    const isGuaranteedTrade = totalTradesRef.current % 2 === 0;
+
+    if (isGuaranteedTrade) {
+      // Find resources the player has (excluding the give resource)
+      const playerResources = available.filter(r => (resources[r] || 0) > 0);
+
+      if (playerResources.length > 0) {
+        // Pick one random resource from player's inventory to guarantee as liked
+        const guaranteedLike = playerResources[Math.floor(Math.random() * playerResources.length)];
+        likes.push(guaranteedLike);
+
+        // Remove it from available pool for remaining likes
+        const availableIndex = available.indexOf(guaranteedLike);
+        if (availableIndex > -1) {
+          available.splice(availableIndex, 1);
+        }
+      }
+    }
+
+    // Pick remaining likes randomly from what's left
     while (likes.length < likeCount && available.length) {
       const pick = available.splice(Math.floor(Math.random() * available.length), 1)[0];
       likes.push(pick);
@@ -785,6 +809,13 @@ export default function App() {
     // Assign unit values based on preferences
     const unitValues = assignUnitValues(likes, dislikes, give);
 
+    // Give player 15% advantage on all goods they might offer (except what NPC is selling)
+    for (const resource in unitValues) {
+      if (resource !== give) {
+        unitValues[resource as ResourceType] *= 1.25;
+      }
+    }
+
     // Compute trade amounts
     const [minGiveQty, maxGiveQty] = resourceQuantityRanges[give];
     const giveAmount = Math.floor(Math.random() * (maxGiveQty - minGiveQty + 1)) + minGiveQty;
@@ -800,7 +831,6 @@ export default function App() {
       dislikes,
       unitValues,
     });
-
   };
   
 
@@ -843,7 +873,7 @@ export default function App() {
   const handleOptionSelect = (option: 'buy' | 'decline') => {
     // Count this trade for shell cadence
     totalTradesRef.current += 1;
-    if (totalTradesRef.current % SHELL_TRADE_INTERVAL === 0) {
+    if (totalTradesRef.current % SHELL_TRADE_INTERVAL === 0 && shellEventCountRef.current < 2) {
       shellDueRef.current = true;
     }
 
@@ -902,18 +932,27 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
               const startPotteryDrop = (trade.give === 'pottery')
                 ? () => {
                   setEventLock(true);
-                  const rp = rightPanPositionRef.current || rightPanPosition;
-                  const startX = rp ? rp.x + (Math.random() - 0.5) * 60 : (width / 2 + (Math.random() - 0.5) * 120);
-                  const startY = rp ? rp.y - 80 : Math.min(140, Math.max(80, height * 0.18));
+
+                  // Calculate fallback right pan position based on scale layout
+                  const fallbackRightPanX = width * 0.65; // Roughly where right pan should be
+                  const fallbackRightPanY = height * 0.45; // Roughly where right pan should be
+
+                  const rp = rightPanPositionRef.current || rightPanPosition ||
+                    { x: fallbackRightPanX, y: fallbackRightPanY };
+
+                  const startX = rp.x + (Math.random() - 0.5) * 60;
+                  const startY = rp.y - 80;
+
+                  console.log('Pottery drop at:', { startX, startY, panPos: rp }); // Debug log
+
                   nextFrame(() => {
                     flyingRef.current?.dropCatchablePottery(
                       { x: startX, y: startY },
                       {
                         onCaught: () => {
-                          setEventLock(false);        // release immediately on catch
+                          setEventLock(false);
                         },
                         onMiss: () => {
-                          // Release only after player taps OK on the break popup
                           handlePotteryBreak(() => setEventLock(false));
                         },
                       }
@@ -937,6 +976,7 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 willAppleHitZero,
                 startPotteryDrop,
                 requestShellNow,
+                totalApples: resources.apples || 0, // For accept path, use current inventory
               });
                 
   
@@ -1085,46 +1125,49 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
     }, 0);
   }, safeExitDelay);
 }
-  // return offered resources if player declined
-  if (option === 'decline') {
-    setResources(prevResources => {
-      const updatedResources = { ...prevResources };
-      for (const [res, amount] of Object.entries(playerOffer)) {
-        if (!amount) continue;
-        updatedResources[res as ResourceType] = (updatedResources[res as ResourceType] || 0) + amount;
-      }
-      return updatedResources;
-    });
+    // return offered resources if player declined
+    if (option === 'decline') {
+      // Calculate total apples (inventory + pan) for spoilage decision
+      const totalApples = (resources.apples || 0) + (playerOffer.apples || 0);
 
-    // --- PRIORITY RESOLUTION ON DECLINE (Apple → Pottery → Shell) ---
-    // Compute whether this tick would bring apples to 0 (highest priority)
-    const currentPie = freezeApplePieAtZero ? 0 : appleTimer;
-    const willAppleHitZero =
-      hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - 0.25) === 0;
+      setResources(prevResources => {
+        const updatedResources = { ...prevResources };
+        for (const [res, amount] of Object.entries(playerOffer)) {
+          if (!amount) continue;
+          updatedResources[res as ResourceType] = (updatedResources[res as ResourceType] || 0) + amount;
+        }
+        return updatedResources;
+      });
 
-    // Shell may be due; allow it if nothing higher fires, defer on the triggering trade
-    const requestShellNow = shellDueRef.current
-      && (totalTradesRef.current % SHELL_TRADE_INTERVAL !== 0)
-      ? () => {
-        shellDueRef.current = false;
-        triggerShellBeachEvent();
-      }
-      : undefined;
+      // Wait for the state update to complete, THEN do all event resolution
+      setTimeout(() => {
+        const currentPie = freezeApplePieAtZero ? 0 : appleTimer;
+        const willAppleHitZero =
+          hasSeenAppleTrade && currentPie > 0 && Math.max(0, currentPie - 0.25) === 0;
 
-    resolveTradeEvents({
-      accepted: false,
-      npcGivesPottery: false,
-      willAppleHitZero,
-      startPotteryDrop: undefined,
-      requestShellNow,
-    });
-      
-  
-    // Make apples tick on decline too (kept after resolver to preserve the priority decision)
-    if (trade) {
-      handleTradeCompleted(trade, playerOffer);
+        const requestShellNow = shellDueRef.current
+          && (totalTradesRef.current % SHELL_TRADE_INTERVAL !== 0)
+          ? () => {
+            shellDueRef.current = false;
+            triggerShellBeachEvent();
+          }
+          : undefined;
+
+        resolveTradeEvents({
+          accepted: false,
+          npcGivesPottery: false,
+          willAppleHitZero,
+          startPotteryDrop: undefined,
+          requestShellNow,
+          totalApples, // Now this variable exists in scope
+        });
+
+        if (trade) {
+          handleTradeCompleted(trade, playerOffer);
+        }
+      }, 0);
     }
-  }
+
 
 
 
@@ -1448,11 +1491,15 @@ const renderNpcRow = () => (
   
   const triggerShellBeachEvent = React.useCallback(() => {
     withEventGate(() => {
-      // 1. Halve all shell values
-      editablePointRanges.shells.favored = editablePointRanges.shells.favored.map(v => v / 2) as [number, number];
-      editablePointRanges.shells.neutral = editablePointRanges.shells.neutral.map(v => v / 2) as [number, number];
-      editablePointRanges.shells.disliked = editablePointRanges.shells.disliked.map(v => v / 2) as [number, number];
 
+      // increase event counter 
+      shellEventCountRef.current += 1;
+
+      // decrease value 1/4
+      editablePointRanges.shells.favored = editablePointRanges.shells.favored.map(v => v * 0.75) as [number, number];
+      editablePointRanges.shells.neutral = editablePointRanges.shells.neutral.map(v => v * 0.75) as [number, number];
+      editablePointRanges.shells.disliked = editablePointRanges.shells.disliked.map(v => v * 0.75) as [number, number];
+      
       // 2. Queue the popup message
       enqueueEventPopup({
         resource: 'shells',
