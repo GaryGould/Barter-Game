@@ -468,6 +468,24 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
         if (isLastSlide) {
             if (isOutroMode) {
+                // Bundle all user responses into a single event
+                posthog?.capture?.('user_complete_session', {
+                    // Tutorial data
+                    tutorial_selected_item: tutorialData?.selectedStartingItem?.label || 'unknown',
+                    tutorial_selected_resource: tutorialData?.selectedStartingItem?.resource || 'unknown',
+                    tutorial_reasoning: tutorialData?.userReasoning || '',
+                    
+                    // Outro data
+                    outro_best_item: outroSelectedBestItem?.label || 'unknown',
+                    outro_best_resource: outroSelectedBestItem?.resource || 'unknown',
+                    outro_comparisons: outroComparisonTexts,
+                    outro_comparisons_count: outroComparisonTexts.length,
+                    
+                    // Metadata
+                    session_complete: true,
+                    timestamp: new Date().toISOString()
+                });
+                
                 onOutroComplete?.();
             } else {
                 // Only pass data if we have a selected item
@@ -1281,6 +1299,24 @@ export const Tutorial: React.FC<TutorialProps> = ({
                 <TouchableOpacity
                     onPress={() => {
                         if (isOutroMode) {
+                            // Bundle all user responses into a single event
+                            posthog?.capture?.('user_complete_session', {
+                                // Tutorial data
+                                tutorial_selected_item: tutorialData?.selectedStartingItem?.label || 'unknown',
+                                tutorial_selected_resource: tutorialData?.selectedStartingItem?.resource || 'unknown',
+                                tutorial_reasoning: tutorialData?.userReasoning || '',
+                                
+                                // Outro data
+                                outro_best_item: outroSelectedBestItem?.label || 'unknown',
+                                outro_best_resource: outroSelectedBestItem?.resource || 'unknown',
+                                outro_comparisons: outroComparisonTexts,
+                                outro_comparisons_count: outroComparisonTexts.length,
+                                
+                                // Metadata
+                                session_complete: true,
+                                timestamp: new Date().toISOString()
+                            });
+                            
                             onOutroComplete?.();
                         } else {
                             if (selectedStartingItem) {

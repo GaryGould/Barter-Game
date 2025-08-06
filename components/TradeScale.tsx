@@ -3,7 +3,6 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { IMAGE_SOURCES } from '../imageCache';
-import { posthog } from '../utils/posthog';
 
 import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { CLAMPED_WIDTH } from '../normalize';
@@ -83,19 +82,6 @@ export const TradeScale = ({
 
     // How far the beam tilts (degrees)
     const rotation = imbalance * 15;
-    
-    // Track balance changes
-    React.useEffect(() => {
-      if (playerTotal > 0 || npcTotal > 0) {
-        posthog.capture('trade_scale_balance_changed', {
-          player_total: playerTotal,
-          npc_total: npcTotal,
-          imbalance: imbalance,
-          rotation: rotation,
-          is_balanced: Math.abs(imbalance) < 0.1
-        });
-      }
-    }, [playerTotal, npcTotal]);
     
     // smooth, interruptible animation of the beam tilt
     const animatedRotation = useRef(new Animated.Value(rotation)).current;
@@ -251,12 +237,6 @@ export const TradeScale = ({
                 doRemove();
                 removeCountRef.current = 1;
                 removeDelayRef.current = REMOVE_BASE_MS;
-                
-                // Track item removal
-                posthog.capture('trade_scale_item_removed', {
-                  resource: res,
-                  action: 'initial_press'
-                });
 
                 // If a previous timer is around, clear it (defensive).
                 if (removeHoldIntervalRef.current) {
@@ -270,15 +250,6 @@ export const TradeScale = ({
 
                   doRemove();
                   removeCountRef.current += 1;
-                  
-                  // Track held removals
-                  if (removeCountRef.current % 5 === 0) {
-                    posthog.capture('trade_scale_item_removed', {
-                      resource: res,
-                      action: 'held_removal',
-                      count: removeCountRef.current
-                    });
-                  }
 
                   if (removeCountRef.current >= 3) {
                     const minDelay = REMOVE_BASE_MS * 0.35;

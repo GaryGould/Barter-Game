@@ -3,7 +3,6 @@ import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { IMAGE_SOURCES } from '../imageCache';
 import { Animated, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing } from 'react-native';
 import { Image } from 'expo-image';
-import { posthog } from '../utils/posthog';
 
 import { ResourceType } from '../App';
 
@@ -142,16 +141,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const opacity = new Animated.Value(1);
             const newFlying = { id, name, anim, target, opacity };
             setFlying(prev => [...prev, newFlying]);
-            
-            // Track flying resource
-            posthog.capture('flying_resource_animated', {
-                resource: name,
-                animation_type: 'fly',
-                start_x: start.x,
-                start_y: start.y,
-                end_x: end.x,
-                end_y: end.y
-            });
 
             Animated.timing(anim, {
                 toValue: target,
@@ -195,14 +184,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const opacity = new Animated.Value(1);
             const newFlying = { id, name, anim, target, opacity };
             setFlying(prev => [...prev, newFlying]);
-            
-            // Track rise and fade animation
-            posthog.capture('flying_resource_animated', {
-                resource: name,
-                animation_type: 'rise_and_fade',
-                rise_pixels: risePx,
-                duration_ms: durationMs
-            });
 
             Animated.parallel([
                 Animated.timing(anim, {
@@ -226,13 +207,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const opacity = new Animated.Value(1);
             const label: FloatingLabel = { id, text, anim, opacity };
             setLabels(prev => [...prev, label]);
-            
-            // Track label animations
-            posthog.capture('flying_label_shown', {
-                label_text: text,
-                rise_pixels: risePx,
-                duration_ms: durationMs
-            });
 
             Animated.parallel([
                 Animated.timing(anim, {
@@ -262,12 +236,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             // show prompt at spawn — horizontally centered on screen
             const { width: screenW } = Dimensions.get('window');
             spawnRisingLabel('Catch!', { x: screenW / 2, y: start.y }, 70, 900, 350);
-            
-            // Track pottery drop start
-            posthog.capture('pottery_drop_started', {
-                start_x: start.x,
-                start_y: start.y
-            });
             
             // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 1.6s)
             const MIN_SPEED = 140; // px/s
@@ -299,12 +267,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                     opacity.setValue(0);
                     setCatchables(prev => prev.filter(c => c.id !== id));
                     opts?.onMiss?.();
-                    
-                    // Track pottery miss
-                    posthog.capture('pottery_catch_result', {
-                        result: 'missed',
-                        reason: 'hit_ground'
-                    });
                 }
             });
 
@@ -428,15 +390,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             // feedback exactly at the touch point
                             spawnRisingLabel('caught it!', { x: tapX, y: tapY }, 70, 900, 300);
                             onCaught?.();
-                            
-                            // Track pottery catch
-                            posthog.capture('pottery_catch_result', {
-                                result: 'caught',
-                                tap_x: tapX,
-                                tap_y: tapY,
-                                pottery_x: cx,
-                                pottery_y: cy
-                            });
                         }}
                         style={{ padding: 6 }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
