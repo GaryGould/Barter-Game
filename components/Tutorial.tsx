@@ -95,7 +95,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 0: Welcome screen
     {
         type: 'welcome',
-        title: 'Welcome!',
+        title: 'Welcome',
         content: 'Time for a challenge:\n\nMedium of Exchange',
     },
 
@@ -617,7 +617,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
     const renderWelcomeSlide = () => (
         <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
             <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
-                <Text style={tutorialStyles.tutorialTitle}>Welcome</Text>
+                <Text style={tutorialStyles.tutorialTitle}>Welcome!</Text>
                 <Text style={tutorialStyles.tutorialSubtext}>
                     This challenge is designed to help you learn something:
                 </Text>
