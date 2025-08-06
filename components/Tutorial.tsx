@@ -96,7 +96,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     {
         type: 'welcome',
         title: 'Welcome',
-        content: 'Time for a challenge:\n\nMedium of Exchange test',
+        content: 'Time for a challenge:\n\nMedium of Exchange',
     },
 
     // Slide 1: Introduction to pricing with animation
@@ -622,7 +622,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     This challenge is designed to help you learn something:
                 </Text>
                 <Text style={{ fontSize: 20, color: '#ff9500', marginBottom: 60 }}>
-                    Medium of Exchange test
+                    Medium of Exchange
                 </Text>
                 <TouchableOpacity
                     onPress={nextSlide}
