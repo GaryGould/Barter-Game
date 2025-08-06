@@ -3,7 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { IMAGE_SOURCES } from '../imageCache';
-import posthog from '../utils/posthog';
+import { posthog } from '../utils/posthog';
 
 import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { CLAMPED_WIDTH } from '../normalize';

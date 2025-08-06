@@ -3,7 +3,7 @@ import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { IMAGE_SOURCES } from '../imageCache';
 import { Animated, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing } from 'react-native';
 import { Image } from 'expo-image';
-import posthog from '../utils/posthog';
+import { posthog } from '../utils/posthog';
 
 import { ResourceType } from '../App';
 
