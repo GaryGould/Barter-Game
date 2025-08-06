@@ -858,10 +858,10 @@ export default function App() {
     // Assign unit values based on preferences
     const unitValues = assignUnitValues(likes, dislikes, give);
 
-    // Give player 15% advantage on all goods they might offer (except what NPC is selling)
+    // Give player advantage on all goods they might offer (except what NPC is selling)
     for (const resource in unitValues) {
       if (resource !== give) {
-        unitValues[resource as ResourceType] *= 1.25;
+        unitValues[resource as ResourceType] *= 1.3;
       }
     }
 
