@@ -469,7 +469,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
         if (isLastSlide) {
             if (isOutroMode) {
                 // Bundle all user responses into a single event
-                posthog?.capture?.('user_complete_session', {
+                posthog?.capture?.('Barter Game Survey Results', {
                     // Tutorial data
                     tutorial_selected_item: tutorialData?.selectedStartingItem?.label || 'unknown',
                     tutorial_selected_resource: tutorialData?.selectedStartingItem?.resource || 'unknown',
@@ -1300,7 +1300,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     onPress={() => {
                         if (isOutroMode) {
                             // Bundle all user responses into a single event
-                            posthog?.capture?.('user_complete_session', {
+                            posthog?.capture?.('Barter Game Survey Results', {
                                 // Tutorial data
                                 tutorial_selected_item: tutorialData?.selectedStartingItem?.label || 'unknown',
                                 tutorial_selected_resource: tutorialData?.selectedStartingItem?.resource || 'unknown',
