@@ -95,7 +95,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 0: Welcome screen
     {
         type: 'welcome',
-        title: 'Welcome',
+        title: 'Welcome!',
         content: 'Time for a challenge:\n\nMedium of Exchange',
     },
 
