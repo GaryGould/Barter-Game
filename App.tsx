@@ -1,6 +1,7 @@
 //app.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { preloadAllImages, IMAGE_SOURCES } from './imageCache';
+import { posthog } from './utils/posthog';
 import {
   View,
   Text,
@@ -277,6 +278,13 @@ export default function App() {
   const [imagesReady, setImagesReady] = useState(false);
   // --- Tutorial State ---
   const [showTutorial, setShowTutorial] = useState(true);
+  
+  // Initialize PostHog on app start
+  useEffect(() => {
+    if (posthog && Platform.OS !== 'web') {
+      posthog.initAsync();
+    }
+  }, []);
 
 
   // --- Tutorial Data Storage ---
