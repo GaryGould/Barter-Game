@@ -324,6 +324,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
     const [selectedStartingItem, setSelectedStartingItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
     const [userReasoning, setUserReasoning] = useState<string>('');
     const [tempSelectedItem, setTempSelectedItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
+    const [welcomeConfirmation, setWelcomeConfirmation] = useState<string>('');
 
     // Outro-specific state
     const [outroSelectedBestItem, setOutroSelectedBestItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
@@ -674,25 +675,63 @@ export const Tutorial: React.FC<TutorialProps> = ({
     // RENDER METHODS
     // ========================================================================
 
-    const renderWelcomeSlide = () => (
-        <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
-            <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
-                <Text style={tutorialStyles.tutorialTitle}>Welcome</Text>
-                <Text style={tutorialStyles.tutorialSubtext}>
-                    This challenge is designed to help you learn something:
-                </Text>
-                <Text style={{ fontSize: 20, color: '#ff9500', marginBottom: 60 }}>
-                    Medium of Exchange
-                </Text>
-                <TouchableOpacity
-                    onPress={nextSlide}
-                    style={tutorialStyles.continueButton}
-                >
-                    <Text style={tutorialStyles.continueButtonText}>Continue</Text>
-                </TouchableOpacity>
+    const renderWelcomeSlide = () => {
+        const isValidInput = welcomeConfirmation.toLowerCase().trim() === 'i understand';
+        
+        return (
+            <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
+                <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
+                    <Text style={[tutorialStyles.tutorialSubtext, { marginBottom: 30, textAlign: 'center', fontSize: 18 }]}>
+                        Be aware that this game requires strategy to win. Randomly guessing will take longer and <Text style={{ fontWeight: 'bold' }}>disqualify</Text> you. Type "I understand" to continue.
+                    </Text>
+                    
+                    <View style={{
+                        width: '100%',
+                        maxWidth: 300,
+                        marginBottom: 30,
+                        padding: 12,
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: '#333',
+                    }}>
+                        <TextInput
+                            style={{
+                                fontSize: 14,
+                                color: '#333',
+                                textAlign: 'center',
+                            }}
+                            placeholder="Type here"
+                            placeholderTextColor="#999"
+                            value={welcomeConfirmation}
+                            onChangeText={setWelcomeConfirmation}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    </View>
+                    
+                    <TouchableOpacity
+                        onPress={nextSlide}
+                        disabled={!isValidInput}
+                        style={[
+                            tutorialStyles.continueButton,
+                            {
+                                backgroundColor: isValidInput ? '#ff9500' : '#ccc',
+                                opacity: isValidInput ? 1 : 0.6,
+                            }
+                        ]}
+                    >
+                        <Text style={[
+                            tutorialStyles.continueButtonText,
+                            { color: isValidInput ? '#ffffff' : '#999' }
+                        ]}>
+                            Continue
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
-    );
+        );
+    };
 
     const renderTextSlide = () => (
         <>

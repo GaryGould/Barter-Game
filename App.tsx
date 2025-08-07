@@ -327,12 +327,14 @@ export default function App() {
   const specialNpcCurrentX = useRef(0);
   const { width, height } = useWindowDimensions();
 
-  //tap vs hold
+  //tap vs hold for adding items to pan
   const holdIntervalRef = useRef<null | (() => void)>(null); // store cancel fn from startFrameLoop
   const heldResourceRef = useRef<ResourceType | null>(null);
-  // acceleration for add-hold
-  const HOLD_BASE_MS = 150;
-  const holdDelayRef = useRef(HOLD_BASE_MS);
+  // acceleration for add-to-pan hold
+  const ADD_TO_PAN_BASE_MS = 150;
+  const ADD_TO_PAN_ACCELERATION_RATE = 0.93;  // Multiply delay by this each time (0.93 = 7% faster)
+  const ADD_TO_PAN_MIN_DELAY_MULTIPLIER = 0.2;  // Minimum delay as fraction of base (0.2 = 20% of base = 30ms)
+  const holdDelayRef = useRef(ADD_TO_PAN_BASE_MS);
   const holdCountRef = useRef(0);
   
 
@@ -1413,7 +1415,7 @@ const renderNpcRow = () => (
                   // immediate first item
                   sendItem();
                   holdCountRef.current = 1;
-                  holdDelayRef.current = HOLD_BASE_MS;
+                  holdDelayRef.current = ADD_TO_PAN_BASE_MS;
 
                   // guard any stray timer
                   if (holdIntervalRef.current) {
@@ -1428,8 +1430,8 @@ const renderNpcRow = () => (
                     holdCountRef.current += 1;
 
                     if (holdCountRef.current >= 3) {
-                      const minDelay = HOLD_BASE_MS * 0.50;          // floor = 50% of base (2x faster max)
-                      const next = Math.max(minDelay, holdDelayRef.current * 0.8); // increase acceleration
+                      const minDelay = ADD_TO_PAN_BASE_MS * ADD_TO_PAN_MIN_DELAY_MULTIPLIER;          // floor = configurable % of base
+                      const next = Math.max(minDelay, holdDelayRef.current * ADD_TO_PAN_ACCELERATION_RATE); // increase acceleration
                       if (next !== holdDelayRef.current) {
                         holdDelayRef.current = next;
                         // (with frame loop we just update the interval variable; loop keeps running)
@@ -1453,7 +1455,7 @@ const renderNpcRow = () => (
                     holdIntervalRef.current = null;
                   }
                   holdCountRef.current = 0;
-                  holdDelayRef.current = HOLD_BASE_MS;
+                  holdDelayRef.current = ADD_TO_PAN_BASE_MS;
                   
                 
                 }}

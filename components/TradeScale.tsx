@@ -32,6 +32,8 @@ const heldRemoveResourceRef = { current: null as ResourceType | null };
 const removeHoldIntervalRef = { current: null as null | (() => void) }; 
   //hold acceleration
   const REMOVE_BASE_MS = 150;
+  const REMOVE_ACCELERATION_RATE = 0.90;  // Multiply delay by this each time 
+  const REMOVE_MIN_DELAY_MULTIPLIER = 0.14;  // Minimum delay as fraction of base
   const removeDelayRef = { current: REMOVE_BASE_MS };
   const removeCountRef = { current: 0 };
 
@@ -244,7 +246,7 @@ export const TradeScale = ({
                   removeHoldIntervalRef.current = null;
                 }
 
-                // Like the add side: shrink delay by 10% after the 3rd item, floor at 35% of base.
+                // Acceleration: shrink delay after the 3rd item using configured rate
                 const tick = () => {
                   if (heldRemoveResourceRef.current !== res) return;
 
@@ -252,8 +254,8 @@ export const TradeScale = ({
                   removeCountRef.current += 1;
 
                   if (removeCountRef.current >= 3) {
-                    const minDelay = REMOVE_BASE_MS * 0.50;
-                    const next = Math.max(minDelay, removeDelayRef.current * 0.8);
+                    const minDelay = REMOVE_BASE_MS * REMOVE_MIN_DELAY_MULTIPLIER;
+                    const next = Math.max(minDelay, removeDelayRef.current * REMOVE_ACCELERATION_RATE);
                     if (next !== removeDelayRef.current) {
                       removeDelayRef.current = next;
                       // (frame loop continues; dynamic interval is read each tick)
