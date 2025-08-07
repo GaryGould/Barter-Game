@@ -217,8 +217,8 @@ export const TradeModal = ({
                 hideNumbers={hideNumbers}
             />
 
-                {/* Debug Values */}
-                {trade && (
+                {/* Debug Values - Hidden for now */}
+                {false && trade && (
                     <View
                         style={{
                             position: 'absolute',

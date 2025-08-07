@@ -2381,33 +2381,37 @@ const renderNpcRow = () => (
       ]}
     >
                 {/* Hint button - inside the virtual scene */}
-                <TouchableOpacity
-                  style={{
-                    position: 'absolute',
-                    top: 60, // Positioned lower (about 2x button height from top)
-                    left: '50%',
-                    transform: [{ translateX: -50 }], // Center it with wider text 
-                    zIndex: 1000,
-                    backgroundColor: '#f0f0f0',
-                    borderWidth: 1,
-                    borderColor: '#d0d0d0',
-                    borderRadius: 8,
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 3,
-                    elevation: 3,
-                  }}
-                  onPress={() => setShowHintDialog(true)}
-                >
-                  <Text style={{
-                    color: '#666',
-                    fontSize: 14,
-                    fontWeight: '500',
-                  }}>Low on items?</Text>
-                </TouchableOpacity>
+                <View style={{
+                  position: 'absolute',
+                  top: 60,
+                  left: 0,
+                  right: 0,
+                  alignItems: 'center',
+                  zIndex: 1000,
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#f0f0f0',
+                      borderWidth: 1,
+                      borderColor: '#d0d0d0',
+                      borderRadius: 8,
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 3,
+                      elevation: 3,
+                    }}
+                    onPress={() => setShowHintDialog(true)}
+                  >
+                    <Text style={{
+                      color: '#666',
+                      fontSize: 14,
+                      fontWeight: '500',
+                    }}>Low on items?</Text>
+                  </TouchableOpacity>
+                </View>
 
       {specialNpc && (
         <View
