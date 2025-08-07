@@ -296,6 +296,9 @@ export default function App() {
   // --- Outro State ---
   const [showOutro, setShowOutro] = useState(false);
 
+  // --- First trader hint state ---
+  const [showFirstTraderHint, setShowFirstTraderHint] = useState(false);
+
   // --- Debug cheat code ---
   const [debugKeySequence, setDebugKeySequence] = useState('');
 
@@ -420,6 +423,9 @@ export default function App() {
     setShowTutorial(false);
     setTutorialData(data || null);
     setTutorialStartSlide(0); // Reset for next time
+    
+    // Show the first trader hint after tutorial
+    setShowFirstTraderHint(true);
 
     // If user completed the full tutorial with item selection
     if (data?.selectedStartingItem) {
@@ -461,6 +467,7 @@ export default function App() {
     setShowHintBeforeRestart(false);
     setShowTutorial(true);
     setShowOutro(false);
+    setShowFirstTraderHint(false);
     setGameEvent(null);
     setTutorialData(null);
     setNpcs([]);
@@ -950,6 +957,11 @@ export default function App() {
 
   // Called when player taps on an NPC to initiate trade
   const handleNpcPress = (index: number) => {
+    // Hide the first trader hint when any NPC is clicked
+    if (showFirstTraderHint) {
+      setShowFirstTraderHint(false);
+    }
+    
     const resourcePool: ResourceType[] = ['salt', 'apples', 'tools', 'pottery', 'shells'];
 
     // Choose different give/want resources
@@ -2037,6 +2049,82 @@ const renderNpcRow = () => (
     return null;
   };
 
+  const renderFirstTraderHint = () => {
+    if (!showFirstTraderHint) return null;
+
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 40, // A bit higher up
+          left: '50%',
+          transform: [{ translateX: -150 }], // Center the 300px wide bubble
+          width: 300,
+          backgroundColor: '#ffffff',
+          borderRadius: 16,
+          paddingVertical: 40, 
+          paddingHorizontal: 20,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          elevation: 10,
+          zIndex: 1000,
+          borderWidth: 2,
+          borderColor: '#ff9500',
+        }}
+        pointerEvents="none" // Don't block clicks
+      >
+        {/* Arrow pointing up to traders */}
+        <View
+          style={{
+            position: 'absolute',
+            top: -10,
+            left: '50%',
+            transform: [{ translateX: -10 }],
+            width: 0,
+            height: 0,
+            borderLeftWidth: 10,
+            borderRightWidth: 10,
+            borderBottomWidth: 10,
+            borderStyle: 'solid',
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderBottomColor: '#ff9500',
+          }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: '50%',
+            transform: [{ translateX: -8 }],
+            width: 0,
+            height: 0,
+            borderLeftWidth: 8,
+            borderRightWidth: 8,
+            borderBottomWidth: 8,
+            borderStyle: 'solid',
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderBottomColor: '#ffffff',
+          }}
+        />
+        
+        <Text
+          style={{
+            fontSize: 18,
+            color: '#333',
+            textAlign: 'center',
+            fontWeight: '600',
+          }}
+        >
+          Click a trader above to get started
+        </Text>
+      </View>
+    );
+  };
+
   const renderEventPopup = () => {
     if (!activeEvent) return null;
     const { resource, amount, message } = activeEvent;
@@ -2449,6 +2537,7 @@ const renderNpcRow = () => (
       {renderNpcRow()}
       <View style={styles.blackOverlayBox} />
       {renderResourceSection()}
+      {renderFirstTraderHint()}
       {selectedNpcIndex !== null && renderOverlay()}
     </View>
 

@@ -346,6 +346,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
     const [outroSelectedBestItem, setOutroSelectedBestItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
     const [outroComparisonTexts, setOutroComparisonTexts] = useState<string[]>([]);
     const [currentOutroTextInput, setCurrentOutroTextInput] = useState<string>('');
+    const [outroFeedback, setOutroFeedback] = useState<string>('');
 
     // Position tracking for animations
     const [leftPanPosition, setLeftPanPosition] = useState<{ x: number; y: number } | null>(null);
@@ -424,7 +425,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                 item => item.resource !== outroSelectedBestItem.resource
             );
 
-            // Create comparison slides for each other item
+            // Create exactly 4 comparison slides (one for each non-selected item)
             otherItems.forEach(item => {
                 slides.push({
                     type: 'text-input',
@@ -439,9 +440,20 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     } as any,
                 });
             });
+            
+            // Add 5th feedback slide AFTER the 4 comparison questions
+            slides.push({
+                type: 'text-input',
+                textInput: {
+                    prompt: 'Do you have any feedback?',
+                    placeholder: 'Type here (optional)',
+                    isOptional: true,  // Mark as optional so it doesn't require 4 words minimum
+                    isFeedback: true   // Mark this as the feedback slide
+                } as any,
+            });
         }
 
-        // Add final thanks slide
+        // Add final thanks slide - this should always be the last slide
         slides.push(BASE_OUTRO_SLIDES[BASE_OUTRO_SLIDES.length - 1]);
 
         return slides;
@@ -511,11 +523,16 @@ export const Tutorial: React.FC<TutorialProps> = ({
         tutorialHoldDelayRef.current = ADD_TO_PAN_BASE_MS;
         
         // Handle outro text input saving
-        if (isOutroMode && currentSlide.type === 'text-input' && currentOutroTextInput.trim()) {
-            setOutroComparisonTexts(prev => [...prev, currentOutroTextInput]);
+        if (isOutroMode && currentSlide.type === 'text-input') {
+            const isFeedback = (currentSlide.textInput as any)?.isFeedback;
             
-            // Store comparison text for final survey submission
-            const comparisonIcons = (currentSlide.textInput as any)?.comparisonIcons;
+            if (isFeedback) {
+                // Save feedback text (can be empty for optional field)
+                setOutroFeedback(currentOutroTextInput);
+            } else if (currentOutroTextInput.trim()) {
+                // Save comparison text
+                setOutroComparisonTexts(prev => [...prev, currentOutroTextInput]);
+            }
             
             setCurrentOutroTextInput('');
         }
@@ -539,6 +556,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     outro_best_resource: outroSelectedBestItem?.resource || 'unknown',
                     outro_comparisons: outroComparisonTexts,
                     outro_comparisons_count: outroComparisonTexts.length,
+                    outro_feedback: outroFeedback || 'none',
                     
                     // Metadata
                     session_complete: true,
@@ -1247,7 +1265,9 @@ export const Tutorial: React.FC<TutorialProps> = ({
     const renderTextInputSlide = () => {
         if (isOutroMode) {
             const wordCount = countWords(currentOutroTextInput);
-            const isValidInput = wordCount >= 4;
+            const isOptional = (currentSlide.textInput as any)?.isOptional;
+            const isFeedback = (currentSlide.textInput as any)?.isFeedback;
+            const isValidInput = isOptional ? true : wordCount >= 4;  // Optional slides don't require minimum words
             const comparisonIcons = (currentSlide.textInput as any)?.comparisonIcons;
 
             return (
@@ -1261,46 +1281,54 @@ export const Tutorial: React.FC<TutorialProps> = ({
                         keyboardShouldPersistTaps="handled"
                     >
                         <View style={{ maxWidth: 500, alignItems: 'center', paddingVertical: 20 }}>
-                            <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: 20
-                            }}>
-                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
-                                    Explain briefly why
+                            {isFeedback ? (
+                                // Feedback slide shows simple text prompt
+                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 20 }]}>
+                                    {currentSlide.textInput?.prompt}
                                 </Text>
-                                {comparisonIcons?.other && (
-                                    <Image
-                                        source={comparisonIcons.other}
-                                        style={{
-                                            width: 30,
-                                            height: 30,
-                                            marginLeft: 8,
-                                            marginRight: 8,
-                                            marginBottom: -4
-                                        }}
-                                        contentFit="contain" transition={0}
-                                    />
-                                )}
-                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
-                                    wasn't as useful as
-                                </Text>
-                                {comparisonIcons?.selected && (
-                                    <Image
-                                        source={comparisonIcons.selected}
-                                        style={{
-                                            width: 30,
-                                            height: 30,
-                                            marginLeft: 8,
-                                            marginRight: 8,
-                                            marginBottom: -4
-                                        }}
-                                        contentFit="contain" transition={0}
-                                    />
-                                )}
-                                <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>?</Text>
-                            </View>
+                            ) : (
+                                // Comparison slides show icons
+                                <View style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: 20
+                                    }}>
+                                        <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
+                                            Explain briefly why
+                                        </Text>
+                                        {comparisonIcons?.other && (
+                                            <Image
+                                                source={comparisonIcons.other}
+                                                style={{
+                                                    width: 30,
+                                                    height: 30,
+                                                    marginLeft: 8,
+                                                    marginRight: 8,
+                                                    marginBottom: -4
+                                                }}
+                                                contentFit="contain" transition={0}
+                                            />
+                                        )}
+                                        <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
+                                            wasn't as useful as
+                                        </Text>
+                                        {comparisonIcons?.selected && (
+                                            <Image
+                                                source={comparisonIcons.selected}
+                                                style={{
+                                                    width: 30,
+                                                    height: 30,
+                                                    marginLeft: 8,
+                                                    marginRight: 8,
+                                                    marginBottom: -4
+                                                }}
+                                                contentFit="contain" transition={0}
+                                            />
+                                        )}
+                                        <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>?</Text>
+                                    </View>
+                            )}
 
                             <View style={{
                                 width: '100%',
@@ -1329,7 +1357,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                 />
                             </View>
 
-                            {!isValidInput && (
+                            {!isValidInput && !isOptional && (
                                 <Text style={{
                                     fontSize: 12,
                                     color: '#999',
