@@ -1,5 +1,5 @@
 // Tutorial.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,8 @@ import {
     TextInput,
     KeyboardAvoidingView,
     Platform,
-    ScrollView
+    ScrollView,
+    Linking
 } from 'react-native';
 import { Image } from 'expo-image';
 import { posthog } from '../utils/posthog';
@@ -448,6 +449,28 @@ export const Tutorial: React.FC<TutorialProps> = ({
     // NAVIGATION UTILITIES
     // ========================================================================
 
+    // Handle redirect for the final slide
+    const handleFinalSlideRedirect = React.useCallback(() => {
+        const redirectUrl = 'https://app.prolific.com/submissions/complete?cc=C1NY1UP7';
+        
+        // Attempt to open the URL
+        Linking.openURL(redirectUrl).catch((err) => {
+            console.error('Failed to redirect to Prolific:', err);
+        });
+    }, []);
+
+    // Auto-redirect timer for final slide
+    useEffect(() => {
+        if (isOutroMode && currentSlide?.type === 'text' && currentSlide?.content === 'Thanks — all done') {
+            // Set up 5-second auto-redirect
+            const timer = setTimeout(() => {
+                handleFinalSlideRedirect();
+            }, 5000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [currentSlideIndex, currentSlide, isOutroMode, handleFinalSlideRedirect]);
+
     const nextSlide = () => {
         // Handle outro text input saving
         if (isOutroMode && currentSlide.type === 'text-input' && currentOutroTextInput.trim()) {
@@ -468,6 +491,11 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
         if (isLastSlide) {
             if (isOutroMode) {
+                // If this is the final "Thanks — all done" slide, redirect to Prolific
+                if (currentSlide?.type === 'text' && currentSlide?.content === 'Thanks — all done') {
+                    handleFinalSlideRedirect();
+                }
+                
                 // Bundle all user responses into a single event
                 posthog?.capture?.('Barter Game Survey Results', {
                     // Tutorial data
@@ -709,6 +737,21 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                     <Image source={currentSlide.preferences.dislikes} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
                                 )}
                             </View>
+                        </View>
+                    )}
+
+                    {/* Show completion code on final slide as backup */}
+                    {isOutroMode && currentSlide?.type === 'text' && currentSlide?.content === 'Thanks — all done' && (
+                        <View style={{ marginTop: 20, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
+                                Redirecting to Prolific in 5 seconds...
+                            </Text>
+                            <Text style={{ fontSize: 12, color: '#999' }}>
+                                If redirect fails, use completion code:
+                            </Text>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 4 }}>
+                                C1NY1UP7
+                            </Text>
                         </View>
                     )}
 

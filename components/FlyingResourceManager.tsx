@@ -376,8 +376,8 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                     ]}
                 >
                     <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={(e) => {
+                        activeOpacity={1}
+                        onPressIn={(e) => {
                             // caught!
                             stop?.();
                             // tiny feedback: pop up a label from catch point
@@ -391,17 +391,32 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             spawnRisingLabel('caught it!', { x: tapX, y: tapY }, 70, 900, 300);
                             onCaught?.();
                         }}
-                        style={{ padding: 6 }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ 
+                            padding: 10,
+                            // Prevent browser drag selection
+                            userSelect: 'none',
+                            WebkitUserSelect: 'none',
+                            cursor: 'pointer',
+                        }}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
 
                 
 
                         <Image
                             source={resourceIcons[name]}
-                            style={{ width: 58, height: 58 }}
+                            style={{ 
+                                width: 58, 
+                                height: 58,
+                                // Prevent drag on web
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none',
+                                WebkitUserDrag: 'none',
+                                pointerEvents: 'none',
+                            }}
                             contentFit="contain"
                             transition={0}
+                            draggable={false}
                         />
                     </TouchableOpacity>
                 </Animated.View>
