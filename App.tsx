@@ -1911,7 +1911,7 @@ const renderNpcRow = () => (
               Hint:
             </Text>
             <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
-              Think about why some goods work better for trading than others
+              Plan a few trades ahead
             </Text>
             <TouchableOpacity
               style={{
@@ -1920,12 +1920,9 @@ const renderNpcRow = () => (
                 paddingVertical: 12,
                 borderRadius: 10,
               }}
-              onPress={() => {
-                setShowHintBeforeRestart(false);
-                setShowRestartDialog(true);
-              }}
+              onPress={handleRestartGame}
             >
-              <Text style={{ color: 'white', fontWeight: '700' }}>Continue</Text>
+              <Text style={{ color: 'white', fontWeight: '700' }}>Restart</Text>
             </TouchableOpacity>
           </View>
         </View>
