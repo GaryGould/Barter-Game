@@ -479,15 +479,8 @@ export const Tutorial: React.FC<TutorialProps> = ({
         if (isOutroMode && currentSlide.type === 'text-input' && currentOutroTextInput.trim()) {
             setOutroComparisonTexts(prev => [...prev, currentOutroTextInput]);
             
-            // Track outro comparison text
+            // Store comparison text for final survey submission
             const comparisonIcons = (currentSlide.textInput as any)?.comparisonIcons;
-            if (comparisonIcons) {
-                posthog?.capture?.('outro_comparison_text_submitted', {
-                    text: currentOutroTextInput,
-                    word_count: countWords(currentOutroTextInput),
-                    comparison_index: outroComparisonTexts.length
-                });
-            }
             
             setCurrentOutroTextInput('');
         }
@@ -1052,20 +1045,11 @@ export const Tutorial: React.FC<TutorialProps> = ({
                 setOutroSelectedBestItem(tempSelectedItem);
                 setTempSelectedItem(null);
                 
-                // Track outro best item selection
-                posthog?.capture?.('outro_best_item_selected', {
-                    selected_item: tempSelectedItem.label,
-                    selected_resource: tempSelectedItem.resource
-                });
+                // Store for final survey submission
             } else {
                 setSelectedStartingItem(tempSelectedItem);
                 
-                // Track tutorial starting item selection
-                posthog?.capture?.('tutorial_starting_item_selected', {
-                    selected_item: tempSelectedItem.label,
-                    selected_resource: tempSelectedItem.resource,
-                    quantity: tempSelectedItem.quantity
-                });
+                // Store for final survey submission
             }
             nextSlide();
         };
@@ -1349,13 +1333,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                         <TouchableOpacity
                             onPress={() => {
                                 if (isValidInput) {
-                                    // Track tutorial reasoning text
-                                    posthog?.capture?.('tutorial_reasoning_submitted', {
-                                        selected_item: selectedStartingItem?.label,
-                                        selected_resource: selectedStartingItem?.resource,
-                                        reasoning_text: userReasoning,
-                                        word_count: wordCount
-                                    });
+                                    // Store reasoning for final survey submission
                                     nextSlide();
                                 }
                             }}

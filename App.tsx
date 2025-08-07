@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { preloadAllImages, IMAGE_SOURCES } from './imageCache';
 // Initialize PostHog for session recordings
 import './utils/posthog';
+import { posthog } from './utils/posthog';
 import {
   View,
   Text,
@@ -275,6 +276,9 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 
 
 export default function App() {
+  // --- Mobile Detection ---
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  
   // --- Image Loading ---
   const [imagesReady, setImagesReady] = useState(false);
   // --- Tutorial State ---
@@ -828,6 +832,33 @@ export default function App() {
       nextFrame(() => next());
     }
   }, [eventLock, activeEvent, systemEventQueue.length]);
+
+  // Mobile device detection
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const checkMobile = () => {
+        // Check for mobile user agent
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const isMobileUA = /iphone|ipod|ipad|android|blackberry|windows phone|opera mini|iemobile|mobile/.test(userAgent);
+        
+        // Check for touch support and small screen (backup check)
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isSmallScreen = window.innerWidth <= 768;
+        
+        // Check if running in mobile app (Expo)
+        const isExpoMobile = Platform.OS === 'ios' || Platform.OS === 'android';
+        
+        setIsMobileDevice(isMobileUA || (hasTouch && isSmallScreen) || isExpoMobile);
+      };
+      
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      
+      return () => {
+        window.removeEventListener('resize', checkMobile);
+      };
+    }
+  }, []);
 
   // Debug cheat codes for testing (web only)
   useEffect(() => {
@@ -2132,6 +2163,59 @@ const renderNpcRow = () => (
       }
     };
   }, []);
+
+  // Mobile warning screen
+  if (isMobileDevice) {
+    return (
+      <View style={{
+        flex: 1,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+      }}>
+        <View style={{
+          backgroundColor: 'white',
+          borderRadius: 20,
+          padding: 30,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+          maxWidth: 400,
+          width: '100%',
+        }}>
+          <Text style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: '#e74c3c',
+            textAlign: 'center',
+            marginBottom: 20,
+          }}>
+            ⚠️ Mobile Device Detected
+          </Text>
+          <Text style={{
+            fontSize: 16,
+            color: '#333',
+            textAlign: 'center',
+            lineHeight: 24,
+          }}>
+            Warning: This app is not intended for mobile devices.
+          </Text>
+          <Text style={{
+            fontSize: 14,
+            color: '#666',
+            textAlign: 'center',
+            marginTop: 15,
+            lineHeight: 20,
+          }}>
+            Please access this game from a desktop or laptop computer for the best experience.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.containerWrapper}>
