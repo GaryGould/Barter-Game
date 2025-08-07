@@ -424,7 +424,6 @@ export default function App() {
   const handleRestartGame = React.useCallback(() => {
     // Reset all game state
     setShowRestartDialog(false);
-    setShowRestartConfirm(false);
     setShowTutorial(true);
     setShowOutro(false);
     setGameEvent(null);
@@ -810,7 +809,7 @@ export default function App() {
 
   // --- Restart confirmation state ---
   const [showRestartDialog, setShowRestartDialog] = useState(false);
-  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showHintDialog, setShowHintDialog] = useState(false);
 
   const withEventGate = React.useCallback((fn: () => void) => {      // ⟵ NEW
     if (eventLock || activeEvent) {
@@ -833,7 +832,7 @@ export default function App() {
     // Check if we're in a web environment
     if (typeof window !== 'undefined' && window.addEventListener) {
       const handleKeyPress = (event: KeyboardEvent) => {
-        if (event.key === '5' || event.key === '4') {
+        if (event.key === '5' || event.key === '4' || event.key === '3') {
           setDebugKeySequence(prev => {
             const newSeq = prev + event.key;
             // Keep only last 3 characters
@@ -858,6 +857,11 @@ export default function App() {
           tools: (prev.tools || 0) + 10
         }));
         console.log('Debug: Added 10 tools to inventory');
+        setDebugKeySequence('');
+      } else if (debugKeySequence === '333') {
+        // Skip the intro tutorial
+        setShowTutorial(false);
+        console.log('Debug: Skipped intro tutorial');
         setDebugKeySequence('');
       }
 
@@ -929,7 +933,7 @@ export default function App() {
     // Give player advantage on all goods they might offer (except what NPC is selling)
     for (const resource in unitValues) {
       if (resource !== give) {
-        unitValues[resource as ResourceType] *= 1.3;
+        unitValues[resource as ResourceType] *= 1.4;
       }
     }
 
@@ -1424,8 +1428,8 @@ const renderNpcRow = () => (
                     holdCountRef.current += 1;
 
                     if (holdCountRef.current >= 3) {
-                      const minDelay = HOLD_BASE_MS * 0.35;          // floor = 10% of base
-                      const next = Math.max(minDelay, holdDelayRef.current * 0.90); // speed up 10%
+                      const minDelay = HOLD_BASE_MS * 0.50;          // floor = 50% of base (2x faster max)
+                      const next = Math.max(minDelay, holdDelayRef.current * 0.8); // increase acceleration
                       if (next !== holdDelayRef.current) {
                         holdDelayRef.current = next;
                         // (with frame loop we just update the interval variable; loop keeps running)
@@ -1799,7 +1803,66 @@ const renderNpcRow = () => (
   // --- Popup Renderer ---
   // --- Restart Dialog Renderer ---
   const renderRestartDialogs = () => {
-    if (showRestartDialog && !showRestartConfirm) {
+    if (showHintDialog) {
+      return (
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          pointerEvents="auto"
+        >
+          <View
+            style={[
+              styles.eventPopupCard,
+              { maxWidth: Math.min(width - 32, 420) } 
+            ]}
+          >
+            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+              1. think about which trading goods are most effective
+            </Text>
+            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
+              2. plan ahead, don't blindly accept trades
+            </Text>
+            <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20 }}>
+              Want to start over with a different trade good?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#3498db',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={() => {
+                  setShowHintDialog(false);
+                  setShowRestartDialog(true);
+                }}
+              >
+                <Text style={{ color: 'white', fontWeight: '700' }}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#95a5a6',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={() => setShowHintDialog(false)}
+              >
+                <Text style={{ color: 'white', fontWeight: '700' }}>No</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    if (showRestartDialog) {
       return (
         <View
           style={{
@@ -1818,7 +1881,7 @@ const renderNpcRow = () => (
             ]}
           >
             <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
-              Restart game with a different trade item?
+              Restart with a different trade item?
             </Text>
             <View style={{ flexDirection: 'row', gap: 16 }}>
               <TouchableOpacity
@@ -1828,7 +1891,7 @@ const renderNpcRow = () => (
                   paddingVertical: 12,
                   borderRadius: 10,
                 }}
-                onPress={() => setShowRestartConfirm(true)}
+                onPress={handleRestartGame}
               >
                 <Text style={{ color: 'white', fontWeight: '700' }}>Yes</Text>
               </TouchableOpacity>
@@ -1849,58 +1912,7 @@ const renderNpcRow = () => (
       );
     }
 
-    if (showRestartConfirm) {
-      return (
-        <View
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-          }}
-          pointerEvents="auto"
-        >
-          <View
-            style={[
-              styles.eventPopupCard,
-              { maxWidth: Math.min(width - 32, 420) } 
-            ]}
-          >
-            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
-              Are you sure?
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 16 }}>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#e74c3c',
-                  paddingHorizontal: 24,
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                }}
-                onPress={handleRestartGame}
-              >
-                <Text style={{ color: 'white', fontWeight: '700' }}>Yes, Restart</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#95a5a6',
-                  paddingHorizontal: 24,
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                }}
-                onPress={() => {
-                  setShowRestartConfirm(false);
-                  setShowRestartDialog(false);
-                }}
-              >
-                <Text style={{ color: 'white', fontWeight: '700' }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      );
-    }
+
 
     return null;
   };
@@ -2151,33 +2163,7 @@ const renderNpcRow = () => (
       ) : (
         <>
       
-    {/* Stuck button - always visible */}
-    <TouchableOpacity
-      style={{
-        position: 'absolute',
-        top: Platform.OS === 'ios' ? 50 : 30,
-        alignSelf: 'center',
-        zIndex: 1000,
-        backgroundColor: '#f0f0f0',
-        borderWidth: 1,
-        borderColor: '#d0d0d0',
-        borderRadius: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 3,
-      }}
-      onPress={() => setShowRestartDialog(true)}
-    >
-      <Text style={{
-        color: '#666',
-        fontSize: 14,
-        fontWeight: '500',
-      }}>stuck?</Text>
-    </TouchableOpacity>
+
 
     {/* Top Tab */}
     {showWorldEvent && (
@@ -2207,6 +2193,35 @@ const renderNpcRow = () => (
         },
       ]}
     >
+                {/* Hint button - inside the virtual scene */}
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    top: 60, // Positioned lower (about 2x button height from top)
+                    left: '50%',
+                    transform: [{ translateX: -30 }], // Center it 
+                    zIndex: 1000,
+                    backgroundColor: '#f0f0f0',
+                    borderWidth: 1,
+                    borderColor: '#d0d0d0',
+                    borderRadius: 8,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 3,
+                    elevation: 3,
+                  }}
+                  onPress={() => setShowHintDialog(true)}
+                >
+                  <Text style={{
+                    color: '#666',
+                    fontSize: 14,
+                    fontWeight: '500',
+                  }}>hint</Text>
+                </TouchableOpacity>
+
       {specialNpc && (
         <View
           style={{

@@ -181,7 +181,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 7: Item selection for starting the real game
     {
         type: 'item-selection',
-        content: 'Which of these goods do you think would be the ideal item for trading?\n\nChoose carefully!',
+        content: 'Which of these goods do you think would be the ideal good to trade with?\n\nChoose carefully!',
         itemSelection: {
             items: [
                 { resource: 'tools', quantity: 1, icon: require('../assets/Icons/Tools.png'), label: 'Tools' },
@@ -412,7 +412,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                 slides.push({
                     type: 'text-input',
                     textInput: {
-                        prompt: `Explain briefly why was more useful than ?`,
+                        prompt: `Explain briefly why wasn't as useful as ?`,
                         placeholder: 'Type here',
                         // Store the icons in a custom property for rendering
                         comparisonIcons: {
@@ -1116,7 +1116,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
     const renderTextInputSlide = () => {
         if (isOutroMode) {
             const wordCount = countWords(currentOutroTextInput);
-            const isValidInput = wordCount >= 3;
+            const isValidInput = wordCount >= 4;
             const comparisonIcons = (currentSlide.textInput as any)?.comparisonIcons;
 
             return (
@@ -1139,9 +1139,9 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                 <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
                                     Explain briefly why
                                 </Text>
-                                {comparisonIcons?.selected && (
+                                {comparisonIcons?.other && (
                                     <Image
-                                        source={comparisonIcons.selected}
+                                        source={comparisonIcons.other}
                                         style={{
                                             width: 30,
                                             height: 30,
@@ -1153,11 +1153,11 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                     />
                                 )}
                                 <Text style={[tutorialStyles.tutorialText, { marginBottom: 0 }]}>
-                                    was more useful than
+                                    wasn't as useful as
                                 </Text>
-                                {comparisonIcons?.other && (
+                                {comparisonIcons?.selected && (
                                     <Image
-                                        source={comparisonIcons.other}
+                                        source={comparisonIcons.selected}
                                         style={{
                                             width: 30,
                                             height: 30,
@@ -1198,13 +1198,15 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                 />
                             </View>
 
-                            <Text style={{
-                                fontSize: 12,
-                                color: isValidInput ? '#28a745' : '#dc3545',
-                                marginBottom: 15
-                            }}>
-                                {wordCount}/3 words minimum
-                            </Text>
+                            {!isValidInput && (
+                                <Text style={{
+                                    fontSize: 12,
+                                    color: '#999',
+                                    marginBottom: 15
+                                }}>
+                                    4 words minimum
+                                </Text>
+                            )}
 
                             <TouchableOpacity
                                 onPress={nextSlide}
@@ -1238,7 +1240,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
         )?.icon;
 
         const wordCount = countWords(userReasoning);
-        const isValidInput = wordCount >= 3;
+        const isValidInput = wordCount >= 4;
 
         return (
             <KeyboardAvoidingView
@@ -1292,13 +1294,15 @@ export const Tutorial: React.FC<TutorialProps> = ({
                             />
                         </View>
 
-                        <Text style={{
-                            fontSize: 12,
-                            color: isValidInput ? '#28a745' : '#dc3545',
-                            marginBottom: 15
-                        }}>
-                            {wordCount}/3 words minimum
-                        </Text>
+                        {!isValidInput && (
+                            <Text style={{
+                                fontSize: 12,
+                                color: '#999',
+                                marginBottom: 15
+                            }}>
+                                4 words minimum
+                            </Text>
+                        )}
 
                         <TouchableOpacity
                             onPress={() => {

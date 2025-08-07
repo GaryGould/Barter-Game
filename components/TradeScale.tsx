@@ -252,8 +252,8 @@ export const TradeScale = ({
                   removeCountRef.current += 1;
 
                   if (removeCountRef.current >= 3) {
-                    const minDelay = REMOVE_BASE_MS * 0.35;
-                    const next = Math.max(minDelay, removeDelayRef.current * 0.90);
+                    const minDelay = REMOVE_BASE_MS * 0.50;
+                    const next = Math.max(minDelay, removeDelayRef.current * 0.8);
                     if (next !== removeDelayRef.current) {
                       removeDelayRef.current = next;
                       // (frame loop continues; dynamic interval is read each tick)

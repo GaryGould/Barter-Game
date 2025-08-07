@@ -237,10 +237,10 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const { width: screenW } = Dimensions.get('window');
             spawnRisingLabel('Catch!', { x: screenW / 2, y: start.y }, 70, 900, 350);
             
-            // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 1.6s)
+            // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 2.133s)
             const MIN_SPEED = 140; // px/s
             const MAX_SPEED = 220; // px/s
-            const dx = -(MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED)) * 1.6; // total px over 1.6s
+            const dx = -(MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED)) * 2.133; // total px over 2.133s
 
             // How high it arcs upward before falling
             const arcHeight = 120 + Math.random() * 40;
@@ -286,7 +286,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
 
             Animated.timing(progress, {
                 toValue: 1,
-                duration: 1600,
+                duration: 2133,
                 easing: Easing.linear,
                 useNativeDriver: false,  // JS driver to compute parabola
             }).start(({ finished }) => {
@@ -381,8 +381,6 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             // caught!
                             stop?.();
                             // tiny feedback: pop up a label from catch point
-                            const cx = (x as any).__getValue?.() ?? 0;
-                            const cy = (y as any).__getValue?.() ?? 0;
                             // (non-blocking visual)
                             // absolute touch point in REAL SCREEN SPACE
                             const tapX = e.nativeEvent.pageX;
@@ -391,12 +389,16 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             spawnRisingLabel('caught it!', { x: tapX, y: tapY }, 70, 900, 300);
                             onCaught?.();
                         }}
-                        style={{ 
+                        style={{
                             padding: 10,
-                            // Prevent browser drag selection
-                            userSelect: 'none',
-                            WebkitUserSelect: 'none',
                             cursor: 'pointer',
+                            // Prevent browser drag selection - cast to any for web-specific properties
+                            ...({
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none',
+                                MozUserSelect: 'none',
+                                msUserSelect: 'none',
+                            } as any),
                         }}
                         hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
@@ -405,18 +407,23 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
 
                         <Image
                             source={resourceIcons[name]}
-                            style={{ 
-                                width: 58, 
+                            style={{
+                                width: 58,
                                 height: 58,
-                                // Prevent drag on web
-                                userSelect: 'none',
-                                WebkitUserSelect: 'none',
-                                WebkitUserDrag: 'none',
                                 pointerEvents: 'none',
+                                // Prevent drag on web - cast to any for web-specific properties
+                                ...({
+                                    userSelect: 'none',
+                                    WebkitUserSelect: 'none',
+                                    MozUserSelect: 'none',
+                                    msUserSelect: 'none',
+                                    WebkitUserDrag: 'none',
+                                    userDrag: 'none',
+                                } as any),
                             }}
                             contentFit="contain"
                             transition={0}
-                            draggable={false}
+                            {...({ draggable: false } as any)}
                         />
                     </TouchableOpacity>
                 </Animated.View>
