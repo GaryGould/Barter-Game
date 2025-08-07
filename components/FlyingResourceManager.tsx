@@ -86,6 +86,8 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
     const [labels, setLabels] = useState<FloatingLabel[]>([]);
     const idRef = useRef(0);
     const [catchables, setCatchables] = useState<CatchableDrop[]>([]);
+    const [showPotteryOverlay, setShowPotteryOverlay] = useState(false);
+    const overlayOpacity = useRef(new Animated.Value(0)).current;
     const screenH = Dimensions.get('window').height;
     // Cleanup animations on unmount
     React.useEffect(() => {
@@ -233,9 +235,17 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
             const y = new Animated.Value(start.y);
             const opacity = new Animated.Value(1);
 
-            // show prompt at spawn — horizontally centered on screen
+            // Show overlay
+            setShowPotteryOverlay(true);
+            Animated.timing(overlayOpacity, {
+                toValue: 0.8,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+
+            // show prompt at spawn — horizontally centered on screen, starting a bit higher
             const { width: screenW } = Dimensions.get('window');
-            spawnRisingLabel('Catch!', { x: screenW / 2, y: start.y }, 70, 900, 350);
+            spawnRisingLabel('Catch!', { x: screenW / 2, y: start.y - 30 }, 70, 1400, 600);
             
             // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 2.133s)
             const MIN_SPEED = 140; // px/s
@@ -266,9 +276,20 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                     progress.stopAnimation();
                     opacity.setValue(0);
                     setCatchables(prev => prev.filter(c => c.id !== id));
+                    hideOverlay();
                     opts?.onMiss?.();
                 }
             });
+
+            const hideOverlay = () => {
+                Animated.timing(overlayOpacity, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }).start(() => {
+                    setShowPotteryOverlay(false);
+                });
+            };
 
             const stop = () => {
                 if (stopped) return;
@@ -277,6 +298,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 progress.removeListener(listenerId);
                 opacity.setValue(0);
                 setCatchables(prev => prev.filter(c => c.id !== id));
+                hideOverlay();
             };
 
             setCatchables(prev => [
@@ -319,6 +341,22 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 zIndex: 9999, // force render on top
             }}
         >
+            {/* Semi-opaque overlay for pottery drop */}
+            {showPotteryOverlay && (
+                <Animated.View
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'black',
+                        opacity: overlayOpacity,
+                        zIndex: 1, // Below pottery and labels
+                    }}
+                    pointerEvents="none"
+                />
+            )}
             {flying.map(({ id, name, anim, opacity }) => (
                 <Animated.Image
                     key={id}
@@ -348,6 +386,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             paddingVertical: text === 'Catch!' ? 10 : 6,
                             backgroundColor: 'white',
                             borderRadius: 14,
+                            zIndex: text === 'Catch!' ? 101 : 50, // "Catch!" above everything else
                         },
                         styles.bubbleShadow,
                     ]}
@@ -372,6 +411,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             position: 'absolute',
                             transform: [{ translateX: x }, { translateY: y }],
                             opacity,
+                            zIndex: 100, // Ensure pottery is above overlay
                         },
                     ]}
                 >

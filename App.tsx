@@ -1100,15 +1100,12 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 ? () => {
                   setEventLock(true);
 
-                  // Calculate fallback right pan position based on scale layout
-                  const fallbackRightPanX = width * 0.65; // Roughly where right pan should be
-                  const fallbackRightPanY = height * 0.45; // Roughly where right pan should be
-
-                  const rp = rightPanPositionRef.current || rightPanPosition ||
-                    { x: fallbackRightPanX, y: fallbackRightPanY };
-
-                  const startX = rp.x + (Math.random() - 0.5) * 60;
-                  const startY = rp.y - 80;
+                  // Always use consistent position relative to right pan
+                  const rp = rightPanPositionRef.current || rightPanPosition;
+                  
+                  // If we have a real pan position, use it; otherwise use center of screen
+                  const startX = rp ? rp.x : width / 2;
+                  const startY = rp ? rp.y - 80 : height * 0.35; // Above the pan or at 35% screen height
 
                   console.log('Pottery drop at:', { startX, startY, panPos: rp }); // Debug log
 
