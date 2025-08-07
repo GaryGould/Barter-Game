@@ -657,11 +657,11 @@ export default function App() {
       if (involvesApples && !hasSeenAppleTrade) {
         setHasSeenAppleTrade(true);
 
-        // Check total apples (inventory + what was offered) to decide if we should show intro
-        const totalApples = (resources.apples || 0) + (playerOffer['apples'] || 0);
-
-        // Show intro if we have/had apples (even if they're all in the pan now)
-        if (totalApples > 0 || trade.give === 'apples') {
+        // Only show the rot message if player actually has apples after the trade
+        // (not when they have 0 fruit)
+        const applesAfterTrade = resources.apples || 0;
+        
+        if (applesAfterTrade > 0) {
           const invRef = inventoryRefs.current.apples;
           if (invRef && typeof (invRef as any).measureInWindow === 'function') {
             (invRef as any).measureInWindow((x: number, y: number, w: number, h: number) => {
