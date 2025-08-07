@@ -835,69 +835,82 @@ export default function App() {
 
   // Mobile device detection
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    // Check if running in native mobile app (Expo)
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      setIsMobileDevice(true);
+      return;
+    }
+    
+    // Web environment checks
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const checkMobile = () => {
         // Check for mobile user agent
-        const userAgent = window.navigator.userAgent.toLowerCase();
+        const userAgent = window.navigator?.userAgent?.toLowerCase() || '';
         const isMobileUA = /iphone|ipod|ipad|android|blackberry|windows phone|opera mini|iemobile|mobile/.test(userAgent);
         
         // Check for touch support and small screen (backup check)
-        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const hasTouch = 'ontouchstart' in window || (navigator?.maxTouchPoints || 0) > 0;
         const isSmallScreen = window.innerWidth <= 768;
         
-        // Check if running in mobile app (Expo)
-        const isExpoMobile = Platform.OS === 'ios' || Platform.OS === 'android';
-        
-        setIsMobileDevice(isMobileUA || (hasTouch && isSmallScreen) || isExpoMobile);
+        setIsMobileDevice(isMobileUA || (hasTouch && isSmallScreen));
       };
       
       checkMobile();
-      window.addEventListener('resize', checkMobile);
       
-      return () => {
-        window.removeEventListener('resize', checkMobile);
-      };
+      // Only add event listener if addEventListener exists
+      if (window.addEventListener) {
+        window.addEventListener('resize', checkMobile);
+        
+        return () => {
+          window.removeEventListener('resize', checkMobile);
+        };
+      }
     }
   }, []);
 
   // Debug cheat codes for testing (web only)
   useEffect(() => {
-    // Check if we're in a web environment
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      const handleKeyPress = (event: KeyboardEvent) => {
-        if (event.key === '5' || event.key === '4' || event.key === '3') {
-          setDebugKeySequence(prev => {
-            const newSeq = prev + event.key;
-            // Keep only last 3 characters
-            return newSeq.slice(-3);
-          });
-        } else {
-          setDebugKeySequence('');
-        }
-      };
-
-      // Check if sequence matches our cheat codes
-      if (debugKeySequence === '555') {
-        // Skip directly to outro for testing
-        setShowTutorial(false);
-        setShowOutro(false);
-        setGameEvent('victory');
-        setDebugKeySequence('');
-      } else if (debugKeySequence === '444') {
-        // Give 10 tools to inventory
-        setResources(prev => ({
-          ...prev,
-          tools: (prev.tools || 0) + 10
-        }));
-        console.log('Debug: Added 10 tools to inventory');
-        setDebugKeySequence('');
-      } else if (debugKeySequence === '333') {
-        // Skip the intro tutorial
-        setShowTutorial(false);
-        console.log('Debug: Skipped intro tutorial');
+    // Only run in web environment
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return;
+    }
+    
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === '5' || event.key === '4' || event.key === '3') {
+        setDebugKeySequence(prev => {
+          const newSeq = prev + event.key;
+          // Keep only last 3 characters
+          return newSeq.slice(-3);
+        });
+      } else {
         setDebugKeySequence('');
       }
+    };
 
+    // Check if sequence matches our cheat codes
+    if (debugKeySequence === '555') {
+      // Skip directly to outro for testing
+      setShowTutorial(false);
+      setShowOutro(false);
+      setGameEvent('victory');
+      setDebugKeySequence('');
+    } else if (debugKeySequence === '444') {
+      // Give 10 tools to inventory
+      setResources(prev => ({
+        ...prev,
+        tools: (prev.tools || 0) + 10
+      }));
+      console.log('Debug: Added 10 tools to inventory');
+      setDebugKeySequence('');
+    } else if (debugKeySequence === '333') {
+      // Skip the intro tutorial
+      setShowTutorial(false);
+      console.log('Debug: Skipped intro tutorial');
+      setDebugKeySequence('');
+    }
+
+    // Only add listener if addEventListener exists
+    if (window.addEventListener) {
       window.addEventListener('keydown', handleKeyPress);
       return () => {
         window.removeEventListener('keydown', handleKeyPress);

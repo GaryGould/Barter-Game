@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { posthog } from '../utils/posthog';
+import { nextFrame, startFrameLoop } from '../utils/safeTimers';
 
 import { styles } from '../styles/styles';
 import {
@@ -319,6 +320,21 @@ export const Tutorial: React.FC<TutorialProps> = ({
         cow: 0,
     });
     const [tutorialPlayerOffer, setTutorialPlayerOffer] = useState<Partial<Record<ResourceType, number>>>({});
+    
+    // Keep a ref of current resources for the hold function to access
+    const tutorialResourcesRef = useRef(tutorialResources);
+    useEffect(() => {
+        tutorialResourcesRef.current = tutorialResources;
+    }, [tutorialResources]);
+    
+    // Press and hold for tutorial
+    const tutorialHoldIntervalRef = useRef<null | (() => void)>(null);
+    const tutorialHeldResourceRef = useRef<ResourceType | null>(null);
+    const ADD_TO_PAN_BASE_MS = 150;
+    const ADD_TO_PAN_ACCELERATION_RATE = 0.93;
+    const ADD_TO_PAN_MIN_DELAY_MULTIPLIER = 0.2;
+    const tutorialHoldDelayRef = useRef(ADD_TO_PAN_BASE_MS);
+    const tutorialHoldCountRef = useRef(0);
 
     // Selection state for both tutorial and outro
     const [selectedStartingItem, setSelectedStartingItem] = useState<{ resource: ResourceType, quantity: number, label: string } | null>(null);
@@ -473,8 +489,27 @@ export const Tutorial: React.FC<TutorialProps> = ({
             return () => clearTimeout(timer);
         }
     }, [currentSlideIndex, currentSlide, isOutroMode, handleFinalSlideRedirect]);
+    
+    // Cleanup hold interval on unmount
+    useEffect(() => {
+        return () => {
+            if (tutorialHoldIntervalRef.current) {
+                tutorialHoldIntervalRef.current();
+                tutorialHoldIntervalRef.current = null;
+            }
+        };
+    }, []);
 
     const nextSlide = () => {
+        // Clean up any active hold interval when changing slides
+        if (tutorialHoldIntervalRef.current) {
+            tutorialHoldIntervalRef.current();
+            tutorialHoldIntervalRef.current = null;
+        }
+        tutorialHeldResourceRef.current = null;
+        tutorialHoldCountRef.current = 0;
+        tutorialHoldDelayRef.current = ADD_TO_PAN_BASE_MS;
+        
         // Handle outro text input saving
         if (isOutroMode && currentSlide.type === 'text-input' && currentOutroTextInput.trim()) {
             setOutroComparisonTexts(prev => [...prev, currentOutroTextInput]);
@@ -959,8 +994,68 @@ export const Tutorial: React.FC<TutorialProps> = ({
                             <TouchableOpacity
                                 key={res}
                                 disabled={isDisabled}
-                                activeOpacity={0.7}
-                                onPress={() => handleTutorialAddItem(res)}
+                                activeOpacity={1}
+                                delayPressIn={0}
+                                delayLongPress={0}
+                                onPressIn={() => {
+                                    if (isDisabled) return;
+                                    
+                                    tutorialHeldResourceRef.current = res;
+                                    
+                                    // Send first item immediately
+                                    handleTutorialAddItem(res);
+                                    tutorialHoldCountRef.current = 1;
+                                    tutorialHoldDelayRef.current = ADD_TO_PAN_BASE_MS;
+                                    
+                                    // Clear any existing interval
+                                    if (tutorialHoldIntervalRef.current) {
+                                        tutorialHoldIntervalRef.current();
+                                        tutorialHoldIntervalRef.current = null;
+                                    }
+                                    
+                                    // Start the hold interval
+                                    tutorialHoldIntervalRef.current = startFrameLoop(
+                                        () => tutorialHoldDelayRef.current,
+                                        () => {
+                                            if (tutorialHeldResourceRef.current !== res) return false;
+                                            
+                                            // Check current resources from ref
+                                            if (tutorialResourcesRef.current[res] <= 0) {
+                                                // Stop the hold if no more items
+                                                tutorialHeldResourceRef.current = null;
+                                                if (tutorialHoldIntervalRef.current) {
+                                                    tutorialHoldIntervalRef.current();
+                                                    tutorialHoldIntervalRef.current = null;
+                                                }
+                                                return false;
+                                            }
+                                            
+                                            // We have items, so add one
+                                            handleTutorialAddItem(res);
+                                            tutorialHoldCountRef.current += 1;
+                                            
+                                            if (tutorialHoldCountRef.current >= 3) {
+                                                const minDelay = ADD_TO_PAN_BASE_MS * ADD_TO_PAN_MIN_DELAY_MULTIPLIER;
+                                                const next = Math.max(minDelay, tutorialHoldDelayRef.current * ADD_TO_PAN_ACCELERATION_RATE);
+                                                if (next !== tutorialHoldDelayRef.current) {
+                                                    tutorialHoldDelayRef.current = next;
+                                                }
+                                            }
+                                            
+                                            return true;
+                                        }
+                                    );
+                                }}
+                                onPressOut={() => {
+                                    // Stop the hold
+                                    tutorialHeldResourceRef.current = null;
+                                    if (tutorialHoldIntervalRef.current) {
+                                        tutorialHoldIntervalRef.current();
+                                        tutorialHoldIntervalRef.current = null;
+                                    }
+                                    tutorialHoldCountRef.current = 0;
+                                    tutorialHoldDelayRef.current = ADD_TO_PAN_BASE_MS;
+                                }}
                             >
                                 <View
                                     ref={(ref) => {
@@ -970,7 +1065,17 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                     style={{
                                         alignItems: 'center',
                                         opacity: isDisabled ? 0.3 : 1,
+                                        cursor: 'pointer',
+                                        ...({
+                                            userSelect: 'none',
+                                            WebkitUserSelect: 'none',
+                                            MozUserSelect: 'none',
+                                            msUserSelect: 'none',
+                                            WebkitUserDrag: 'none',
+                                            userDrag: 'none',
+                                        } as any),
                                     }}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
                                     <ResourceDisplay
                                         name={res}
