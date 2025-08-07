@@ -1009,7 +1009,7 @@ export default function App() {
     // Give player advantage on all goods they might offer (except what NPC is selling)
     for (const resource in unitValues) {
       if (resource !== give) {
-        unitValues[resource as ResourceType] *= 1.4;
+        unitValues[resource as ResourceType] *= 1.5;
       }
     }
 
