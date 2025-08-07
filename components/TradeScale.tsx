@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { IMAGE_SOURCES } from '../imageCache';
@@ -87,6 +87,8 @@ export const TradeScale = ({
     
     // smooth, interruptible animation of the beam tilt
     const animatedRotation = useRef(new Animated.Value(rotation)).current;
+    const [domRotation, setDomRotation] = useState(rotation);
+    
   useEffect(() => {
     // Only animate if value actually changed
     const currentValue = (animatedRotation as any)._value;
@@ -98,6 +100,15 @@ export const TradeScale = ({
         useNativeDriver: true,
       }).start();
     }
+    
+    // Update DOM rotation for Posthog session replay
+    const listener = animatedRotation.addListener(({ value }) => {
+      setDomRotation(value);
+    });
+    
+    return () => {
+      animatedRotation.removeListener(listener);
+    };
   }, [rotation]);
     //
     // ---- PAN POSITIONING ----
@@ -174,6 +185,10 @@ export const TradeScale = ({
     const animatedLeftPanY = useRef(new Animated.Value(leftTip.y)).current;
     const animatedRightPanX = useRef(new Animated.Value(rightTip.x)).current;
     const animatedRightPanY = useRef(new Animated.Value(rightTip.y)).current;
+    
+    // DOM positions for Posthog
+    const [domLeftPos, setDomLeftPos] = useState({ x: leftTip.x, y: leftTip.y });
+    const [domRightPos, setDomRightPos] = useState({ x: rightTip.x, y: rightTip.y });
 
     useEffect(() => {
       Animated.parallel([
@@ -198,6 +213,27 @@ export const TradeScale = ({
           useNativeDriver: true,
         }),
       ]).start();
+      
+      // Update DOM positions for Posthog session replay
+      const leftXListener = animatedLeftPanX.addListener(({ value }) => {
+        setDomLeftPos(prev => ({ ...prev, x: value }));
+      });
+      const leftYListener = animatedLeftPanY.addListener(({ value }) => {
+        setDomLeftPos(prev => ({ ...prev, y: value }));
+      });
+      const rightXListener = animatedRightPanX.addListener(({ value }) => {
+        setDomRightPos(prev => ({ ...prev, x: value }));
+      });
+      const rightYListener = animatedRightPanY.addListener(({ value }) => {
+        setDomRightPos(prev => ({ ...prev, y: value }));
+      });
+      
+      return () => {
+        animatedLeftPanX.removeListener(leftXListener);
+        animatedLeftPanY.removeListener(leftYListener);
+        animatedRightPanX.removeListener(rightXListener);
+        animatedRightPanY.removeListener(rightYListener);
+      };
     }, [leftTip.x, leftTip.y, rightTip.x, rightTip.y]);
     
     //
@@ -316,6 +352,34 @@ export const TradeScale = ({
 
     return (
       <View style={styles.root}>
+        {/* Shadow elements for Posthog capture */}
+        <View
+          style={{
+            position: 'absolute',
+            opacity: 0,
+            transform: [{ rotate: `${domRotation}deg` }],
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        />
+        <View
+          style={{
+            position: 'absolute',
+            opacity: 0,
+            transform: [{ translateX: domLeftPos.x, translateY: domLeftPos.y }],
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        />
+        <View
+          style={{
+            position: 'absolute',
+            opacity: 0,
+            transform: [{ translateX: domRightPos.x, translateY: domRightPos.y }],
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        />
 
         {/* The beam image tilts based on value difference */}
         <Animated.Image
