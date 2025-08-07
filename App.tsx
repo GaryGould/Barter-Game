@@ -430,6 +430,8 @@ export default function App() {
   const handleRestartGame = React.useCallback(() => {
     // Reset all game state
     setShowRestartDialog(false);
+    setShowHintDialog(false);
+    setShowHintBeforeRestart(false);
     setShowTutorial(true);
     setShowOutro(false);
     setGameEvent(null);
@@ -816,6 +818,7 @@ export default function App() {
   // --- Restart confirmation state ---
   const [showRestartDialog, setShowRestartDialog] = useState(false);
   const [showHintDialog, setShowHintDialog] = useState(false);
+  const [showHintBeforeRestart, setShowHintBeforeRestart] = useState(false);
 
   const withEventGate = React.useCallback((fn: () => void) => {      // ⟵ NEW
     if (eventLock || activeEvent) {
@@ -1859,7 +1862,7 @@ const renderNpcRow = () => (
   // --- Popup Renderer ---
   // --- Restart Dialog Renderer ---
   const renderRestartDialogs = () => {
-    if (showHintDialog) {
+    if (showHintBeforeRestart) {
       return (
         <View
           style={{
@@ -1878,11 +1881,48 @@ const renderNpcRow = () => (
             ]}
           >
             <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 10 }}>
-              1. think about which trading goods are most effective
+              Hint:
             </Text>
             <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
-              2. plan ahead, don't blindly accept trades
+              Think about why some goods work better for trading than others
             </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#3498db',
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 10,
+              }}
+              onPress={() => {
+                setShowHintBeforeRestart(false);
+                setShowRestartDialog(true);
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: '700' }}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    
+    if (showHintDialog) {
+      return (
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          pointerEvents="auto"
+        >
+          <View
+            style={[
+              styles.eventPopupCard,
+              { maxWidth: Math.min(width - 32, 420) } 
+            ]}
+          >
             <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20 }}>
               Want to start over with a different trade good?
             </Text>
@@ -1896,7 +1936,7 @@ const renderNpcRow = () => (
                 }}
                 onPress={() => {
                   setShowHintDialog(false);
-                  setShowRestartDialog(true);
+                  setShowHintBeforeRestart(true);
                 }}
               >
                 <Text style={{ color: 'white', fontWeight: '700' }}>Yes</Text>
@@ -2308,7 +2348,7 @@ const renderNpcRow = () => (
                     position: 'absolute',
                     top: 60, // Positioned lower (about 2x button height from top)
                     left: '50%',
-                    transform: [{ translateX: -30 }], // Center it 
+                    transform: [{ translateX: -50 }], // Center it with wider text 
                     zIndex: 1000,
                     backgroundColor: '#f0f0f0',
                     borderWidth: 1,
@@ -2328,7 +2368,7 @@ const renderNpcRow = () => (
                     color: '#666',
                     fontSize: 14,
                     fontWeight: '500',
-                  }}>hint</Text>
+                  }}>Low on items?</Text>
                 </TouchableOpacity>
 
       {specialNpc && (
