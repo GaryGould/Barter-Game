@@ -279,6 +279,7 @@ export default function App() {
   const [imagesReady, setImagesReady] = useState(false);
   // --- Tutorial State ---
   const [showTutorial, setShowTutorial] = useState(true);
+  const [tutorialStartSlide, setTutorialStartSlide] = useState(0);
   
 
 
@@ -385,6 +386,7 @@ export default function App() {
   }) => {
     setShowTutorial(false);
     setTutorialData(data || null);
+    setTutorialStartSlide(0); // Reset for next time
 
     // If user completed the full tutorial with item selection
     if (data?.selectedStartingItem) {
@@ -416,6 +418,65 @@ export default function App() {
     setShowOutro(false);
     setGameEvent(null);
     setTutorialData(null);
+  }, []);
+
+  // --- Restart game handler ---
+  const handleRestartGame = React.useCallback(() => {
+    // Reset all game state
+    setShowRestartDialog(false);
+    setShowRestartConfirm(false);
+    setShowTutorial(true);
+    setShowOutro(false);
+    setGameEvent(null);
+    setTutorialData(null);
+    setNpcs([]);
+    setResources({
+      salt: 0,
+      apples: 0,
+      tools: 0,
+      pottery: 0,
+      shells: 0,
+      cow: 0,
+    });
+    setTutorialStartSlide(7); // Start at item selection slide
+    setTrade(null);
+    setPlayerOffer({});
+    setSelectedNpcIndex(null);
+    setSpecialNpc(null);
+    setAcceptedTradeCount(0);
+    setRecentlyOfferedGoods([]);
+    setSpecialNpcSpawnedFirstTime(false);
+    setAppleTimer(1);
+    setHasSeenAppleTrade(false);
+    setHasSpoilageTriggered(false);
+    setFreezeApplePieAtZero(false);
+    setPieShouldInstantJumpToOne(false);
+    setShowWorldEvent(false);
+    setEventQueue([]);
+    setActiveEvent(null);
+    setEventLock(false);
+    setSystemEventQueue([]);
+    
+    // Reset refs
+    totalTradesRef.current = 0;
+    shellDueRef.current = false;
+    shellEventCountRef.current = 0;
+    tradeEventActiveRef.current = false;
+    suppressPieOnDepletedOnceRef.current = false;
+    
+    // Clear any timers
+    if (worldEventTimerRef.current) {
+      clearTimeout(worldEventTimerRef.current);
+      worldEventTimerRef.current = null;
+    }
+    if (holdIntervalRef.current) {
+      holdIntervalRef.current();
+      holdIntervalRef.current = null;
+    }
+    if (specialNpcRequestRef.current) {
+      cancelAnimationFrame(specialNpcRequestRef.current);
+      specialNpcRequestRef.current = null;
+    }
   }, []);
 
   // --- Generate initial NPCs excluding player's chosen resource ---
@@ -746,6 +807,10 @@ export default function App() {
   // --- Event gating (ensure only one system event runs at a time) ---
   const [eventLock, setEventLock] = useState(false);                 // ⟵ NEW
   const [systemEventQueue, setSystemEventQueue] = useState<(() => void)[]>([]); // ⟵ NEW
+
+  // --- Restart confirmation state ---
+  const [showRestartDialog, setShowRestartDialog] = useState(false);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   const withEventGate = React.useCallback((fn: () => void) => {      // ⟵ NEW
     if (eventLock || activeEvent) {
@@ -1732,6 +1797,114 @@ const renderNpcRow = () => (
 
 
   // --- Popup Renderer ---
+  // --- Restart Dialog Renderer ---
+  const renderRestartDialogs = () => {
+    if (showRestartDialog && !showRestartConfirm) {
+      return (
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          pointerEvents="auto"
+        >
+          <View
+            style={[
+              styles.eventPopupCard,
+              { maxWidth: Math.min(width - 32, 420) } 
+            ]}
+          >
+            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
+              Restart game with a different trade item?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#e74c3c',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={() => setShowRestartConfirm(true)}
+              >
+                <Text style={{ color: 'white', fontWeight: '700' }}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#95a5a6',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={() => setShowRestartDialog(false)}
+              >
+                <Text style={{ color: 'white', fontWeight: '700' }}>No</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    if (showRestartConfirm) {
+      return (
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          pointerEvents="auto"
+        >
+          <View
+            style={[
+              styles.eventPopupCard,
+              { maxWidth: Math.min(width - 32, 420) } 
+            ]}
+          >
+            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
+              Are you sure?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#e74c3c',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={handleRestartGame}
+              >
+                <Text style={{ color: 'white', fontWeight: '700' }}>Yes, Restart</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#95a5a6',
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={() => {
+                  setShowRestartConfirm(false);
+                  setShowRestartDialog(false);
+                }}
+              >
+                <Text style={{ color: 'white', fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
   const renderEventPopup = () => {
     if (!activeEvent) return null;
     const { resource, amount, message } = activeEvent;
@@ -1964,6 +2137,7 @@ const renderNpcRow = () => (
           onComplete={handleTutorialComplete}
           flyingRef={flyingRef}
           inventoryRefs={inventoryRefs}
+          startAtSlide={tutorialStartSlide}
         />
       ) : showOutro ? (
         <Tutorial
@@ -1977,6 +2151,33 @@ const renderNpcRow = () => (
       ) : (
         <>
       
+    {/* Stuck button - always visible */}
+    <TouchableOpacity
+      style={{
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? 50 : 30,
+        alignSelf: 'center',
+        zIndex: 1000,
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#d0d0d0',
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 3,
+      }}
+      onPress={() => setShowRestartDialog(true)}
+    >
+      <Text style={{
+        color: '#666',
+        fontSize: 14,
+        fontWeight: '500',
+      }}>stuck?</Text>
+    </TouchableOpacity>
 
     {/* Top Tab */}
     {showWorldEvent && (
@@ -2074,6 +2275,7 @@ const renderNpcRow = () => (
     )}
           {renderEventPopup()}
           {renderGameEventOverlay()}
+          {renderRestartDialogs()}
         </>
       )}
     </View>

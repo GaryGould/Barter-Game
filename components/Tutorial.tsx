@@ -50,6 +50,7 @@ type TutorialProps = {
         userReasoning?: string;
     } | null;
     onOutroComplete?: () => void;
+    startAtSlide?: number;
 };
 
 type TutorialSlideConfig = {
@@ -296,7 +297,8 @@ export const Tutorial: React.FC<TutorialProps> = ({
     inventoryRefs,
     isOutroMode = false,
     tutorialData,
-    onOutroComplete
+    onOutroComplete,
+    startAtSlide = 0
 }) => {
     const { width } = useWindowDimensions();
 
@@ -305,7 +307,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
     // ========================================================================
 
     // Navigation state
-    const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+    const [currentSlideIndex, setCurrentSlideIndex] = useState(startAtSlide);
 
     // Tutorial game state
     const [tutorialResources, setTutorialResources] = useState<Record<ResourceType, number>>({
