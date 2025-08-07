@@ -330,6 +330,33 @@ export default function App() {
   const specialNpcLastTimestamp = useRef<number | null>(null);
   const specialNpcCurrentX = useRef(0);
   const { width, height } = useWindowDimensions();
+  
+  // Web-only: Dynamic scaling based on window size
+  const [webScale, setWebScale] = useState(1);
+  
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    
+    const handleResize = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate scale to fit
+      const scaleX = viewportWidth / VIRTUAL_WIDTH;
+      const scaleY = viewportHeight / VIRTUAL_HEIGHT;
+      const scale = Math.min(scaleX, scaleY, 1);
+      
+      console.log('Viewport:', viewportWidth, 'x', viewportHeight, 'Scale:', scale);
+      setWebScale(scale);
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   //tap vs hold for adding items to pan
   const holdIntervalRef = useRef<null | (() => void)>(null); // store cancel fn from startFrameLoop
@@ -2291,6 +2318,17 @@ const renderNpcRow = () => (
         ))}
       </View>
       <FlyingResourceManager ref={flyingRef} />
+      
+      {/* Web scaling wrapper - wraps everything except flying resources */}
+      <View style={Platform.OS === 'web' ? {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        top: 0,
+        transform: [{ scale: webScale }],
+        transformOrigin: 'center bottom',
+      } : {}}>
 
       {/* Tutorial - Show first before main game */}
       {showTutorial ? (
@@ -2442,6 +2480,7 @@ const renderNpcRow = () => (
           {renderRestartDialogs()}
         </>
       )}
+      </View> {/* End of web scaling wrapper */}
     </View>
   );
 
