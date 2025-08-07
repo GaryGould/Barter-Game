@@ -154,8 +154,8 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         type: 'text',
         content: 'To make things worse, value is subjective',
         preferences: {
-            likes: require('../assets/Icons/apple.png'),
-            dislikes: [require('../assets/Icons/shell.png'), require('../assets/Icons/pottery.png')]
+            likes: require('../assets/Icons/shell.png'),
+            dislikes: [require('../assets/Icons/apple.png'), require('../assets/Icons/pottery.png')]
         },
     },
 
@@ -163,11 +163,11 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     {
         type: 'trade',
         tradeConfig: {
-            trade: { give: 'tools', giveAmount: 1, want: 'apples', wantAmount: 2 },
-            values: { salt: 1, apples: 20, tools: 21, pottery: 5, shells: 2, cow: 120 },
+            trade: { give: 'tools', giveAmount: 1, want: 'shells', wantAmount: 2 },
+            values: { salt: 1, apples: 2, tools: 19, pottery: 5, shells: 20, cow: 120 },
             startingInventory: { salt: 0, apples: 1, tools: 0, pottery: 1, shells: 1, cow: 0 },
-            likes: ['apples'],
-            dislikes: ['shells', 'pottery'],
+            likes: ['shells'],
+            dislikes: ['apples', 'pottery'],
             instructionText: '',
         },
     },
@@ -700,7 +700,10 @@ export const Tutorial: React.FC<TutorialProps> = ({
                                 fontSize: 14,
                                 color: '#333',
                                 textAlign: 'center',
-                            }}
+                                outlineWidth: 0,
+                                outlineStyle: 'none',
+                                borderWidth: 0,
+                            } as any}
                             placeholder="Type here"
                             placeholderTextColor="#999"
                             value={welcomeConfirmation}

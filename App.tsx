@@ -1371,9 +1371,22 @@ const renderNpcRow = () => (
               <TouchableOpacity
                 key={res}
                 disabled={isDisabled}
-                activeOpacity={0.7}
+                activeOpacity={1}
                 delayPressIn={0}
                 delayLongPress={0}
+                style={{
+                  cursor: 'pointer',
+                  // Prevent browser drag selection - cast to any for web-specific properties
+                  ...({
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none',
+                    WebkitUserDrag: 'none',
+                    userDrag: 'none',
+                  } as any),
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 onPressIn={() => {
                   cancelAllScaleRemovals();
                   if (isDisabled) return;

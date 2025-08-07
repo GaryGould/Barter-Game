@@ -31,9 +31,22 @@ export const ResourceDisplay = ({ name, amount, showAmount = true }: ResourceDis
         )}
         <Image
           source={icon}
-          style={styles.icon}
+          style={[
+            styles.icon,
+            // Prevent drag on web - cast to any for web-specific properties
+            {
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              WebkitUserDrag: 'none',
+              userDrag: 'none',
+              pointerEvents: 'none',
+            } as any,
+          ]}
           contentFit="contain"
           transition={0}
+          {...({ draggable: false } as any)}
         />
       </View>
     </View>
