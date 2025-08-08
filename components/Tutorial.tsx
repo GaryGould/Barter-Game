@@ -176,7 +176,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 6: Explaining that scale shows value, not weight
     {
         type: 'text',
-        content: 'Remember!\n\nThe scale shows perceived value, not how much things weigh',
+        content: 'Remember!\n\nThe scale measures value, not weight.',
     },
 
     // Slide 7: Third trading experience (salt only with numbers)
