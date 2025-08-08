@@ -480,7 +480,7 @@ export default function App() {
       shells: 0,
       cow: 0,
     });
-    setTutorialStartSlide(7); // Start at item selection slide
+    setTutorialStartSlide(9); // Start at item selection slide
     setTrade(null);
     setPlayerOffer({});
     setSelectedNpcIndex(null);
@@ -1586,7 +1586,7 @@ const renderNpcRow = () => (
                   collapsable={false}
                   style={{
                     alignItems: 'center',
-                    opacity: trade && isDisabled ? 0.3 : 1,
+                    opacity: resources[res] <= 0 ? 0.3 : 1,
                   }}
                 >
                   <View style={{ position: 'relative' }}>

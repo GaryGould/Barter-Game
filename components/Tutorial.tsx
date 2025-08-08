@@ -173,13 +173,32 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         },
     },
 
-    // Slide 6: Transition to master trader
+    // Slide 6: Explaining that scale shows value, not weight
+    {
+        type: 'text',
+        content: 'Remember!\n\nThe scale shows perceived value, not how much things weigh',
+    },
+
+    // Slide 7: Third trading experience (salt only with numbers)
+    {
+        type: 'trade',
+        tradeConfig: {
+            trade: { give: 'tools', giveAmount: 1, want: 'salt', wantAmount: 25 },
+            values: { salt: 1, apples: 5, tools: 25, pottery: 20, shells: 10, cow: 120 },
+            startingInventory: { salt: 40, apples: 0, tools: 0, pottery: 0, shells: 0, cow: 0 },
+            likes: [],
+            dislikes: [],
+            instructionText: 'Press and hold to add multiple items at once',
+        },
+    },
+
+    // Slide 8: Transition to master trader
     {
         type: 'text',
         content: 'Let\'s see if you can become a master trader',
     },
 
-    // Slide 7: Item selection for starting the real game
+    // Slide 9: Item selection for starting the real game
     {
         type: 'item-selection',
         content: 'Which of these goods do you think would be the ideal good to trade with?\n\nChoose carefully!',
@@ -194,7 +213,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         },
     },
 
-    // Slide 8: Text input for reasoning
+    // Slide 10: Text input for reasoning
     {
         type: 'text-input',
         textInput: {
@@ -203,7 +222,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         },
     },
 
-    // Slide 9: Final slide before starting the game
+    // Slide 11: Final slide before starting the game
     {
         type: 'final',
         content: 'To win, trade for a cow',
@@ -640,6 +659,15 @@ export const Tutorial = ({
             ...prev,
             [res]: (prev[res] || 0) + 1,
         }));
+
+        // Add flying animation from inventory to left pan
+        if (leftPanPosition && inventoryRefs.current[res]) {
+            inventoryRefs.current[res]?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                const start = { x: x + width / 2, y: y + height / 2 };
+                const end = { x: leftPanPosition.x, y: leftPanPosition.y };
+                flyingRef.current?.fly(res, start, end);
+            });
+        }
     };
 
     const handleTutorialRemoveItem = (res: ResourceType) => {
@@ -699,7 +727,7 @@ export const Tutorial = ({
 
         setTutorialPlayerOffer({});
 
-        if (currentSlideIndex === 3 || currentSlideIndex === 5) {
+        if (currentSlideIndex === 3 || currentSlideIndex === 5 || currentSlideIndex === 7) {
             // Store the current slide index to validate later
             const slideIndexAtStart = currentSlideIndex;
             
@@ -731,7 +759,7 @@ export const Tutorial = ({
     }, [currentSlideIndex]);
 
     React.useEffect(() => {
-        const tradeSlides = [3, 5];
+        const tradeSlides = [3, 5, 7];
         const textSlides = [4];
 
         if (tradeSlides.includes(currentSlideIndex) || textSlides.includes(currentSlideIndex)) {
@@ -819,11 +847,26 @@ export const Tutorial = ({
         );
     };
 
-    const renderTextSlide = () => (
+    const renderTextSlide = () => {
+        // Check if content starts with "Remember!" to apply special formatting
+        const hasRememberPrefix = currentSlide.content?.startsWith('Remember!');
+        
+        return (
         <>
             <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
                 <View style={{ maxWidth: 500, alignItems: 'center' }}>
-                    <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
+                    {hasRememberPrefix ? (
+                        <>
+                            <Text style={[tutorialStyles.tutorialText, { fontWeight: '700', marginBottom: 10 }]}>
+                                Remember!
+                            </Text>
+                            <Text style={tutorialStyles.tutorialText}>
+                                {currentSlide.content.replace('Remember!\n\n', '')}
+                            </Text>
+                        </>
+                    ) : (
+                        <Text style={tutorialStyles.tutorialText}>{currentSlide.content}</Text>
+                    )}
 
                     {currentSlide.images && currentSlide.images.map((img, index) => (
                         <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
@@ -937,7 +980,8 @@ export const Tutorial = ({
                 />
             )}
         </>
-    );
+        );
+    };
 
     const renderComparisonSlide = () => {
         const renderChain = () => {
@@ -1035,7 +1079,7 @@ export const Tutorial = ({
                 </>
             )}
 
-            {(currentSlideIndex === 3 || currentSlideIndex === 5) && (
+            {(currentSlideIndex === 3 || currentSlideIndex === 5 || currentSlideIndex === 7) && (
                 <Animated.View
                     style={{
                         position: 'absolute',
@@ -1153,7 +1197,7 @@ export const Tutorial = ({
                                     <ResourceDisplay
                                         name={res}
                                         amount={tutorialResources[res]}
-                                        showAmount={false}
+                                        showAmount={currentSlideIndex === 7}
                                     />
                                 </View>
                             </TouchableOpacity>
@@ -1207,7 +1251,7 @@ export const Tutorial = ({
                     onLeftPanMeasured={(pos) => { leftPanPositionRef.current = pos; setLeftPanPosition(pos); }}
                     onRightPanMeasured={(pos) => { rightPanPositionRef.current = pos; setRightPanPosition(pos); }}
                     introAnimatedRef={tradeIntroAnimatedRef}
-                    hideNumbers={true}
+                    hideNumbers={currentSlideIndex !== 7}
                     hideDecline={true}
                     tutorialText={config.instructionText}
                 />
