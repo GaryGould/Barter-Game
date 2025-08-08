@@ -642,26 +642,30 @@ export const Tutorial = ({
     // ========================================================================
 
     const handleTutorialAddItem = (res: ResourceType) => {
-        if (tutorialResources[res] <= 0) return;
-
-        setTutorialResources(prev => ({
-            ...prev,
-            [res]: prev[res] - 1,
-        }));
-
-        setTutorialPlayerOffer(prev => ({
-            ...prev,
-            [res]: (prev[res] || 0) + 1,
-        }));
-
-        // Add flying animation from inventory to left pan
-        if (leftPanPosition && inventoryRefs.current[res]) {
-            inventoryRefs.current[res]?.measureInWindow((x: number, y: number, width: number, height: number) => {
-                const start = { x: x + width / 2, y: y + height / 2 };
-                const end = { x: leftPanPosition.x, y: leftPanPosition.y };
-                flyingRef.current?.fly(res, start, end);
-            });
-        }
+        // Perform atomic check and update
+        setTutorialResources(prev => {
+            if (prev[res] <= 0) return prev; // Don't update if no resources
+            
+            // We have resources, so update both states and trigger animation
+            setTutorialPlayerOffer(offer => ({
+                ...offer,
+                [res]: (offer[res] || 0) + 1,
+            }));
+            
+            // Add flying animation from inventory to left pan
+            if (leftPanPosition && inventoryRefs.current[res]) {
+                inventoryRefs.current[res]?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                    const start = { x: x + width / 2, y: y + height / 2 };
+                    const end = { x: leftPanPosition.x, y: leftPanPosition.y };
+                    flyingRef.current?.fly(res, start, end);
+                });
+            }
+            
+            return {
+                ...prev,
+                [res]: prev[res] - 1,
+            };
+        });
     };
 
     const handleTutorialRemoveItem = (res: ResourceType) => {
