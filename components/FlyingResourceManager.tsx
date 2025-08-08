@@ -338,7 +338,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                zIndex: 9999, // force render on top
+                zIndex: 999999, // Maximum z-index to ensure pottery always renders above ALL other components
             }}
         >
             {/* Semi-opaque overlay for pottery drop */}
@@ -352,7 +352,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                         bottom: 0,
                         backgroundColor: 'black',
                         opacity: overlayOpacity,
-                        zIndex: 1, // Below pottery and labels
+                        zIndex: 999990, // High z-index but below pottery and labels
                     }}
                     pointerEvents="none"
                 />
@@ -386,7 +386,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             paddingVertical: text === 'Catch!' ? 10 : 6,
                             backgroundColor: 'white',
                             borderRadius: 14,
-                            zIndex: text === 'Catch!' ? 101 : 50, // "Catch!" above everything else
+                            zIndex: text === 'Catch!' ? 999997 : 999995, // "Catch!" above overlay but below pottery
                         },
                         styles.bubbleShadow,
                     ]}
@@ -411,7 +411,7 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             position: 'absolute',
                             transform: [{ translateX: x }, { translateY: y }],
                             opacity,
-                            zIndex: 100, // Ensure pottery is above overlay
+                            zIndex: 999998, // Maximum z-index for pottery to ensure it's above everything except container
                         },
                     ]}
                 >

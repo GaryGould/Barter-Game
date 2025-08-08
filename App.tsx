@@ -1161,14 +1161,16 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 ? () => {
                   setEventLock(true);
 
-                  // Always use consistent position relative to right pan
-                  const rp = rightPanPositionRef.current || rightPanPosition;
+                  // Use absolute position in virtual screen coordinates: 1/4 from the right, above center
+                  // Virtual screen is 390x844, we want pottery at 3/4 width (292.5) and reasonable height
+                  const virtualX = VIRTUAL_WIDTH * 0.75; // 1/4 from right in virtual coords
+                  const virtualY = VIRTUAL_HEIGHT * 0.35; // Above center, similar to original pan position
                   
-                  // If we have a real pan position, use it; otherwise use center of screen
-                  const startX = rp ? rp.x : width / 2;
-                  const startY = rp ? rp.y - 80 : height * 0.35; // Above the pan or at 35% screen height
+                  // Transform to actual screen coordinates
+                  const startX = HORIZONTAL_PADDING + (virtualX * SCENE_SCALE);
+                  const startY = virtualY * SCENE_SCALE;
 
-                  console.log('Pottery drop at:', { startX, startY, panPos: rp }); // Debug log
+                  console.log('Pottery drop at:', { startX, startY, virtualX, virtualY, scale: SCENE_SCALE }); // Debug log
 
                   nextFrame(() => {
                     flyingRef.current?.dropCatchablePottery(
