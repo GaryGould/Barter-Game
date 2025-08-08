@@ -117,7 +117,7 @@ const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
   },
   tools: {
     neutral: [24, 25],
-    disliked: [15, 20],
+    disliked: [10, 12],
   },
   cow:{
     neutral: [0, 0],
