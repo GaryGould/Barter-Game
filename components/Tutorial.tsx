@@ -66,14 +66,12 @@ type TutorialSlideConfig = {
         images?: Array<{ src: any; text?: string }>;
     };
     preferences?: {
-        likes: any;
         dislikes: any | any[];
     };
     tradeConfig?: {
         trade: Trade;
         values: Record<ResourceType, number>;
         startingInventory: Record<ResourceType, number>;
-        likes: ResourceType[];
         dislikes: ResourceType[];
         instructionText: string;
     };
@@ -144,7 +142,6 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
             trade: { give: 'tools', giveAmount: 1, want: 'salt', wantAmount: 3 },
             values: { salt: 1, apples: 5, tools: 25.5, pottery: 20, shells: 10, cow: 120 },
             startingInventory: { salt: 1, apples: 1, tools: 0, pottery: 1, shells: 1, cow: 0 },
-            likes: [],
             dislikes: [],
             instructionText: 'Keep adding offers until the trader agrees',
         },
@@ -155,7 +152,6 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
         type: 'text',
         content: 'To make things worse, value is subjective',
         preferences: {
-            likes: require('../assets/Icons/shell.png'),
             dislikes: [require('../assets/Icons/apple.png'), require('../assets/Icons/pottery.png')]
         },
     },
@@ -167,7 +163,6 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
             trade: { give: 'tools', giveAmount: 1, want: 'shells', wantAmount: 2 },
             values: { salt: 1, apples: 2, tools: 19, pottery: 5, shells: 20, cow: 120 },
             startingInventory: { salt: 0, apples: 1, tools: 0, pottery: 1, shells: 1, cow: 0 },
-            likes: ['shells'],
             dislikes: ['apples', 'pottery'],
             instructionText: '',
         },
@@ -186,7 +181,6 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
             trade: { give: 'tools', giveAmount: 1, want: 'salt', wantAmount: 25 },
             values: { salt: 1, apples: 5, tools: 25, pottery: 20, shells: 10, cow: 120 },
             startingInventory: { salt: 40, apples: 0, tools: 0, pottery: 0, shells: 0, cow: 0 },
-            likes: [],
             dislikes: [],
             instructionText: 'Press and hold to add multiple items at once',
         },
@@ -892,10 +886,6 @@ export const Tutorial = ({
                     {currentSlide.preferences && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 40 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }}>likes</Text>
-                                <Image source={currentSlide.preferences.likes} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }}>dislikes</Text>
                                 {Array.isArray(currentSlide.preferences.dislikes) ? (
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -1246,7 +1236,6 @@ export const Tutorial = ({
                         });
                     }}
                     onRemoveItem={handleTutorialRemoveItem}
-                    likes={config.likes}
                     dislikes={config.dislikes}
                     onLeftPanMeasured={(pos) => { leftPanPositionRef.current = pos; setLeftPanPosition(pos); }}
                     onRightPanMeasured={(pos) => { rightPanPositionRef.current = pos; setRightPanPosition(pos); }}
