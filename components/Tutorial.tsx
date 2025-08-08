@@ -309,6 +309,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
     // Navigation state
     const [currentSlideIndex, setCurrentSlideIndex] = useState(startAtSlide);
+    const [isTransitioning, setIsTransitioning] = useState(false);
 
     // Tutorial game state
     const [tutorialResources, setTutorialResources] = useState<Record<ResourceType, number>>({
@@ -513,6 +514,12 @@ export const Tutorial: React.FC<TutorialProps> = ({
     }, []);
 
     const nextSlide = () => {
+        // Prevent double-calls
+        if (isTransitioning) return;
+        
+        // Mark as transitioning
+        setIsTransitioning(true);
+        
         // Clean up any active hold interval when changing slides
         if (tutorialHoldIntervalRef.current) {
             tutorialHoldIntervalRef.current();
@@ -579,6 +586,8 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     onComplete();
                 }
             }
+            // Clear transition state after completion
+            setIsTransitioning(false);
         } else {
             setCurrentSlideIndex(prev => prev + 1);
 
@@ -589,6 +598,12 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     setTutorialResources(nextSlideConfig.tradeConfig.startingInventory);
                 }
             }
+            
+            // Clear transition state after slide change
+            // Use a small timeout to ensure the new slide has rendered
+            setTimeout(() => {
+                setIsTransitioning(false);
+            }, 100);
         }
     };
 
@@ -663,10 +678,15 @@ export const Tutorial: React.FC<TutorialProps> = ({
     };
 
     const handleTutorialAccept = () => {
+        // Prevent double-clicks
+        if (isTransitioning) return;
         if (!isTutorialTradePassable()) return;
 
         const config = currentSlide.tradeConfig;
         if (!config) return;
+
+        // Mark as transitioning immediately
+        setIsTransitioning(true);
 
         setTutorialResources(prev => ({
             ...prev,
@@ -676,12 +696,21 @@ export const Tutorial: React.FC<TutorialProps> = ({
         setTutorialPlayerOffer({});
 
         if (currentSlideIndex === 3 || currentSlideIndex === 5) {
+            // Store the current slide index to validate later
+            const slideIndexAtStart = currentSlideIndex;
+            
             Animated.timing(slideTransitionAnim, {
                 toValue: 1,
                 duration: 600,
                 useNativeDriver: true,
             }).start(() => {
-                nextSlide();
+                // Only proceed if we're still on the same slide
+                if (currentSlideIndex === slideIndexAtStart) {
+                    nextSlide();
+                } else {
+                    // If slide changed, just clear transition state
+                    setIsTransitioning(false);
+                }
             });
         } else {
             nextSlide();
@@ -760,8 +789,12 @@ export const Tutorial: React.FC<TutorialProps> = ({
                     </View>
                     
                     <TouchableOpacity
-                        onPress={nextSlide}
-                        disabled={!isValidInput}
+                        onPress={() => {
+                            if (!isTransitioning) {
+                                nextSlide();
+                            }
+                        }}
+                        disabled={!isValidInput || isTransitioning}
                         style={[
                             tutorialStyles.continueButton,
                             {
@@ -847,21 +880,35 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
                     <TouchableOpacity
                         onPress={() => {
+                            // Prevent clicks during transitions
+                            if (isTransitioning) return;
+                            
                             if (currentSlide.animatedContent && !showAnimatedContent) {
                                 triggerSlideAnimation();
                             } else if (!isOutroMode && currentSlideIndex === 4) {
+                                // Mark as transitioning immediately
+                                setIsTransitioning(true);
+                                const slideIndexAtStart = currentSlideIndex;
+                                
                                 Animated.timing(slideTransitionAnim, {
                                     toValue: 1,
                                     duration: 600,
                                     useNativeDriver: true,
                                 }).start(() => {
-                                    nextSlide();
+                                    // Only proceed if we're still on the same slide
+                                    if (currentSlideIndex === slideIndexAtStart) {
+                                        nextSlide();
+                                    } else {
+                                        // If slide changed, just clear transition state
+                                        setIsTransitioning(false);
+                                    }
                                 });
                             } else {
                                 nextSlide();
                             }
                         }}
                         style={tutorialStyles.continueButton}
+                        disabled={isTransitioning}
                     >
                         <Text style={tutorialStyles.continueButtonText}>
                             {isOutroMode ? (isLastSlide ? 'Finish' : 'Next') : 'Continue'}
@@ -936,6 +983,9 @@ export const Tutorial: React.FC<TutorialProps> = ({
 
                     <TouchableOpacity
                         onPress={() => {
+                            // Prevent clicks during transitions
+                            if (isTransitioning) return;
+                            
                             if (currentSlide.animatedContent && !showAnimatedContent) {
                                 triggerSlideAnimation();
                             } else {
@@ -943,6 +993,7 @@ export const Tutorial: React.FC<TutorialProps> = ({
                             }
                         }}
                         style={tutorialStyles.continueButton}
+                        disabled={isTransitioning}
                     >
                         <Text style={tutorialStyles.continueButtonText}>
                             Continue
