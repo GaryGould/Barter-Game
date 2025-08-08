@@ -1215,16 +1215,13 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
                 ? () => {
                   setEventLock(true);
 
-                  // Use absolute position in virtual screen coordinates: 1/4 from the right, above center
-                  // Virtual screen is 390x844, we want pottery at 3/4 width (292.5) and reasonable height
-                  const virtualX = VIRTUAL_WIDTH * 0.75; // 1/4 from right in virtual coords
-                  const virtualY = VIRTUAL_HEIGHT * 0.35; // Above center, similar to original pan position
-                  
-                  // Transform to actual screen coordinates
-                  const startX = HORIZONTAL_PADDING + (virtualX * SCENE_SCALE);
-                  const startY = virtualY * SCENE_SCALE;
+                  // Position in scene coordinates (which is already scaled)
+                  // The scene is TOTAL_SCENE_WIDTH wide (VIRTUAL_WIDTH * SCENE_SCALE)
+                  // We want pottery at 75% across the scene
+                  const startX = TOTAL_SCENE_WIDTH * 0.75;
+                  const startY = VIRTUAL_HEIGHT * SCENE_SCALE * 0.35;
 
-                  console.log('Pottery drop at:', { startX, startY, virtualX, virtualY, scale: SCENE_SCALE }); // Debug log
+                  console.log('Pottery drop at:', { startX, startY, sceneWidth: TOTAL_SCENE_WIDTH }); // Debug log
 
                   nextFrame(() => {
                     flyingRef.current?.dropCatchablePottery(
@@ -1998,7 +1995,7 @@ const renderNpcRow = () => (
               Hint:
             </Text>
             <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
-              Plan a few trades ahead
+              Plan a few trades ahead.
             </Text>
             <TouchableOpacity
               style={{
@@ -2426,9 +2423,8 @@ const renderNpcRow = () => (
           />
         ))}
       </View>
-      <FlyingResourceManager ref={flyingRef} />
       
-      {/* Scaling wrapper - wraps everything except flying resources */}
+      {/* Scaling wrapper - wraps everything including flying resources */}
       <View style={Platform.OS === 'web' ? {
         position: 'absolute',
         bottom: 0,
@@ -2490,6 +2486,7 @@ const renderNpcRow = () => (
               },
             ]}
           >
+                <FlyingResourceManager ref={flyingRef} />
                 {/* Hint button - inside the virtual scene */}
                 <View style={{
                   position: 'absolute',

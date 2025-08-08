@@ -243,9 +243,8 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                 useNativeDriver: true,
             }).start();
 
-            // show prompt at spawn — horizontally centered on screen, starting a bit higher
-            const { width: screenW } = Dimensions.get('window');
-            spawnRisingLabel('Catch!', { x: screenW / 2, y: start.y - 30 }, 70, 1400, 600);
+            // show prompt at spawn — at the pottery position, starting a bit higher
+            spawnRisingLabel('Catch!', { x: start.x, y: start.y - 30 }, 70, 1400, 600);
             
             // Horizontal displacement: ALWAYS LEFT; random speed (≈140–260 px/s over 2.133s)
             const MIN_SPEED = 140; // px/s
