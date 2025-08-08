@@ -145,7 +145,7 @@ const resourceQuantityRanges: Record<ResourceType, [number, number]> = {
 
 
 // how often to trigger the shell event
-const SHELL_TRADE_INTERVAL = 9;
+const SHELL_TRADE_INTERVAL = 12;
 // fraction of apple‐pie decremented per trade
 const APPLE_DECAY_STEP = 0.20;
 
@@ -367,8 +367,8 @@ export default function App() {
   const heldResourceRef = useRef<ResourceType | null>(null);
   // acceleration for add-to-pan hold
   const ADD_TO_PAN_BASE_MS = 150;
-  const ADD_TO_PAN_ACCELERATION_RATE = 0.93;  // Multiply delay by this each time (0.93 = 7% faster)
-  const ADD_TO_PAN_MIN_DELAY_MULTIPLIER = 0.2;  // Minimum delay as fraction of base (0.2 = 20% of base = 30ms)
+  const ADD_TO_PAN_ACCELERATION_RATE = 0.88;  // Multiply delay by this each time 
+  const ADD_TO_PAN_MIN_DELAY_MULTIPLIER = 0.13;  // Minimum delay as fraction of base (0.2 = 20% of base = 30ms)
   const holdDelayRef = useRef(ADD_TO_PAN_BASE_MS);
   const holdCountRef = useRef(0);
   
@@ -887,7 +887,7 @@ export default function App() {
       
       if (pid) {
         setProlificPid(pid);
-        
+
         // Identify user in PostHog with Prolific ID
         if (posthog && typeof posthog.identify === 'function') {
           posthog.identify(pid, {
@@ -896,19 +896,20 @@ export default function App() {
             session_id: sessionId || 'unknown',
             source: 'prolific'
           });
-          
+
           // Explicitly ensure session recording is active
-          if (posthog.sessionRecording) {
-            posthog.sessionRecording.startRecording();
+          if (posthog.sessionRecording && !posthog.sessionRecording.started) {
+            posthog.startSessionRecordingg();
           }
-          
+
           // Verify PostHog is working
           console.log('PostHog initialized with Prolific ID:', pid);
-          console.log('PostHog session recording enabled:', posthog.sessionRecording?.isRecordingEnabled());
+          console.log('PostHog session recording enabled:', posthog.sessionRecording.started);
           console.log('PostHog session ID:', posthog.get_session_id?.());
         } else {
           console.warn('PostHog not properly initialized');
         }
+      
       } else {
         // If no Prolific ID, still identify with a unique ID for testing
         const testId = `test_user_${Date.now()}`;
@@ -1546,7 +1547,7 @@ const renderNpcRow = () => (
                     sendItem();
                     holdCountRef.current += 1;
 
-                    if (holdCountRef.current >= 3) {
+                    if (holdCountRef.current >= 1) {
                       const minDelay = ADD_TO_PAN_BASE_MS * ADD_TO_PAN_MIN_DELAY_MULTIPLIER;          // floor = configurable % of base
                       const next = Math.max(minDelay, holdDelayRef.current * ADD_TO_PAN_ACCELERATION_RATE); // increase acceleration
                       if (next !== holdDelayRef.current) {

@@ -333,8 +333,8 @@ export const Tutorial = ({
     const tutorialHoldIntervalRef = useRef<null | (() => void)>(null);
     const tutorialHeldResourceRef = useRef<ResourceType | null>(null);
     const ADD_TO_PAN_BASE_MS = 150;
-    const ADD_TO_PAN_ACCELERATION_RATE = 0.93;
-    const ADD_TO_PAN_MIN_DELAY_MULTIPLIER = 0.2;
+    const ADD_TO_PAN_ACCELERATION_RATE = 0.88;
+    const ADD_TO_PAN_MIN_DELAY_MULTIPLIER = 0.13;
     const tutorialHoldDelayRef = useRef(ADD_TO_PAN_BASE_MS);
     const tutorialHoldCountRef = useRef(0);
 
@@ -1107,7 +1107,7 @@ export const Tutorial = ({
                                             handleTutorialAddItem(res);
                                             tutorialHoldCountRef.current += 1;
                                             
-                                            if (tutorialHoldCountRef.current >= 3) {
+                                            if (tutorialHoldCountRef.current >= 1) {
                                                 const minDelay = ADD_TO_PAN_BASE_MS * ADD_TO_PAN_MIN_DELAY_MULTIPLIER;
                                                 const next = Math.max(minDelay, tutorialHoldDelayRef.current * ADD_TO_PAN_ACCELERATION_RATE);
                                                 if (next !== tutorialHoldDelayRef.current) {
