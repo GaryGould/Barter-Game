@@ -38,7 +38,7 @@ type Trade = {
     wantAmount: number;
 };
 
-type TutorialProps = {
+export type TutorialProps = {
     onComplete: (data?: {
         selectedStartingItem?: { resource: ResourceType, quantity: number, label: string };
         userReasoning?: string;
@@ -292,15 +292,16 @@ const tutorialStyles = {
 // MAIN COMPONENT
 // ============================================================================
 
-export const Tutorial: React.FC<TutorialProps> = ({
+export const Tutorial = ({
     onComplete,
     flyingRef,
     inventoryRefs,
     isOutroMode = false,
     tutorialData,
     onOutroComplete,
-    startAtSlide = 0
-}) => {
+    startAtSlide = 0,
+    prolificPid
+}: TutorialProps) => {
     const { width } = useWindowDimensions();
 
     // ========================================================================
@@ -553,6 +554,9 @@ export const Tutorial: React.FC<TutorialProps> = ({
                 
                 // Bundle all user responses into a single event
                 posthog?.capture?.('Barter Game Survey Results', {
+                    // Participant ID
+                    prolific_pid: prolificPid || 'unknown',
+                    
                     // Tutorial data
                     tutorial_selected_item: tutorialData?.selectedStartingItem?.label || 'unknown',
                     tutorial_selected_resource: tutorialData?.selectedStartingItem?.resource || 'unknown',
@@ -1554,6 +1558,9 @@ export const Tutorial: React.FC<TutorialProps> = ({
                         if (isOutroMode) {
                             // Bundle all user responses into a single event
                             posthog?.capture?.('Barter Game Survey Results', {
+                                // Participant ID
+                                prolific_pid: prolificPid || 'unknown',
+                                
                                 // Tutorial data
                                 tutorial_selected_item: tutorialData?.selectedStartingItem?.label || 'unknown',
                                 tutorial_selected_resource: tutorialData?.selectedStartingItem?.resource || 'unknown',

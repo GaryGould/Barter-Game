@@ -283,6 +283,9 @@ export default function App() {
   const [showTutorial, setShowTutorial] = useState(true);
   const [tutorialStartSlide, setTutorialStartSlide] = useState(0);
   
+  // --- Prolific Participant ID ---
+  const [prolificPid, setProlificPid] = useState<string | null>(null);
+  
 
 
   // --- Tutorial Data Storage ---
@@ -869,6 +872,57 @@ export default function App() {
   }, [eventLock, activeEvent, systemEventQueue.length]);
 
   // Mobile device detection removed - game works on all devices
+  
+  // Initialize PostHog and capture Prolific participant ID
+  useEffect(() => {
+    // Only run on web platform
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    
+    try {
+      // Extract Prolific parameters from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const pid = urlParams.get('PROLIFIC_PID') || urlParams.get('prolific_pid');
+      const studyId = urlParams.get('STUDY_ID') || urlParams.get('study_id');
+      const sessionId = urlParams.get('SESSION_ID') || urlParams.get('session_id');
+      
+      if (pid) {
+        setProlificPid(pid);
+        
+        // Identify user in PostHog with Prolific ID
+        if (posthog && typeof posthog.identify === 'function') {
+          posthog.identify(pid, {
+            prolific_pid: pid,
+            study_id: studyId || 'unknown',
+            session_id: sessionId || 'unknown',
+            source: 'prolific'
+          });
+          
+          // Explicitly ensure session recording is active
+          if (posthog.sessionRecording) {
+            posthog.sessionRecording.startRecording();
+          }
+          
+          // Verify PostHog is working
+          console.log('PostHog initialized with Prolific ID:', pid);
+          console.log('PostHog session recording enabled:', posthog.sessionRecording?.isRecordingEnabled());
+          console.log('PostHog session ID:', posthog.get_session_id?.());
+        } else {
+          console.warn('PostHog not properly initialized');
+        }
+      } else {
+        // If no Prolific ID, still identify with a unique ID for testing
+        const testId = `test_user_${Date.now()}`;
+        if (posthog && typeof posthog.identify === 'function') {
+          posthog.identify(testId, {
+            source: 'direct'
+          });
+          console.log('PostHog initialized with test ID:', testId);
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing PostHog:', error);
+    }
+  }, []); // Run once on mount
 
   // Debug cheat codes for testing (web only)
   useEffect(() => {
