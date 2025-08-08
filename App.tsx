@@ -86,13 +86,15 @@ const resourceIcons: Record<DisplayIcon, any> = {
 
 
 //modify values when traders prefer a certain good
-type PreferenceLevel = 'neutral' | 'disliked';
+type PreferenceLevel = 'favored' | 'neutral' | 'disliked';
 
 type ResourcePointRanges = {
+  favored: [number, number];
   neutral: [number, number];
   disliked: [number, number];
 };
 type TradePreferences = {
+  likes: ResourceType[];
   dislikes: ResourceType[];
   unitValues: Record<ResourceType, number>;
 };
@@ -100,26 +102,32 @@ type TradePreferences = {
 // Each resource has a hidden point value range used during trade generation
 const editablePointRanges: Record<ResourceType, ResourcePointRanges> = {
   salt: {
+    favored: [2, 2],
     neutral: [1, 1],
     disliked: [0.5, 0.8],
   },
   apples: {
+    favored: [7, 8],
     neutral: [4, 5],
     disliked: [2, 3],
   },
   shells: {
+    favored: [11, 12],
     neutral: [8, 9],
     disliked: [5, 6],
   },
   pottery: {
+    favored: [15, 16],
     neutral: [12, 13],
     disliked: [9, 10],
   },
   tools: {
+    favored: [28, 29],
     neutral: [24, 25],
-    disliked: [10, 12],
+    disliked: [15, 20],
   },
   cow:{
+    favored: [0, 0],
     neutral: [0, 0],
     disliked: [0, 0],
   },
@@ -773,6 +781,7 @@ export default function App() {
   
   
   function assignUnitValues(
+    likes: ResourceType[],
     dislikes: ResourceType[],
     sell: ResourceType
   ): Record<ResourceType, number> {
@@ -783,6 +792,9 @@ export default function App() {
       if (res === sell) {
         // NPC always sells at neutral price
         const [min, max] = editablePointRanges[res].neutral;
+        values[res] = Math.random() * (max - min) + min;
+      } else if (likes.includes(res)) {
+        const [min, max] = editablePointRanges[res].favored;
         values[res] = Math.random() * (max - min) + min;
       } else if (dislikes.includes(res)) {
         const [min, max] = editablePointRanges[res].disliked;
@@ -984,13 +996,43 @@ export default function App() {
       want = resourcePool[Math.floor(Math.random() * resourcePool.length)];
     }
 
-    // Generate 1–2 dislikes, excluding 'give' and salt
-    const dislikeCount = Math.floor(Math.random() * 2.1) + 1;
+    // Generate 1–2 likes and 1–2 dislikes, excluding 'give' and salt for dislikes
+    const available = resourcePool.filter(r => r !== give);
+    const likeCount = Math.floor(Math.random() * 2) + 1;
+    const dislikeCount = Math.floor(Math.random() * 2) + 1;
+
+    const likes: ResourceType[] = [];
     const dislikes: ResourceType[] = [];
 
-    // For dislikes, exclude salt and give
+    // Every other trade, guarantee one liked good is in player's inventory
+    const isGuaranteedTrade = totalTradesRef.current % 2 === 0;
+
+    if (isGuaranteedTrade) {
+      // Find resources the player has (excluding the give resource)
+      const playerResources = available.filter(r => (resources[r] || 0) > 0);
+
+      if (playerResources.length > 0) {
+        // Pick one random resource from player's inventory to guarantee as liked
+        const guaranteedLike = playerResources[Math.floor(Math.random() * playerResources.length)];
+        likes.push(guaranteedLike);
+
+        // Remove it from available pool for remaining likes
+        const availableIndex = available.indexOf(guaranteedLike);
+        if (availableIndex > -1) {
+          available.splice(availableIndex, 1);
+        }
+      }
+    }
+
+    // Pick remaining likes randomly from what's left
+    while (likes.length < likeCount && available.length) {
+      const pick = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+      likes.push(pick);
+    }
+
+    // For dislikes, exclude salt and already liked resources
     const dislikable = resourcePool.filter(
-      r => r !== give && r !== 'salt'
+      r => r !== give && r !== 'salt' && !likes.includes(r)
     );
     while (dislikes.length < dislikeCount && dislikable.length) {
       const pick = dislikable.splice(Math.floor(Math.random() * dislikable.length), 1)[0];
@@ -998,12 +1040,12 @@ export default function App() {
     }
 
     // Assign unit values based on preferences
-    const unitValues = assignUnitValues(dislikes, give);
+    const unitValues = assignUnitValues(likes, dislikes, give);
 
     // Give player advantage on all goods they might offer (except what NPC is selling)
     for (const resource in unitValues) {
       if (resource !== give) {
-        unitValues[resource as ResourceType] *= 2;
+        unitValues[resource as ResourceType] *= 1.5;
       }
     }
     
@@ -1061,6 +1103,7 @@ export default function App() {
     setTrade(tradeData);
     setSelectedNpcIndex(index);
     setTradePreferences({
+      likes,
       dislikes,
       unitValues,
     });
@@ -1091,6 +1134,7 @@ export default function App() {
 
     setTrade(tradeData);
     setTradePreferences({
+      likes: [],
       dislikes: [],
       unitValues,
     });
@@ -1763,6 +1807,7 @@ const renderNpcRow = () => (
       shellEventCountRef.current += 1;
 
       // decrease value 1/4
+      editablePointRanges.shells.favored = editablePointRanges.shells.favored.map(v => v * 0.75) as [number, number];
       editablePointRanges.shells.neutral = editablePointRanges.shells.neutral.map(v => v * 0.75) as [number, number];
       editablePointRanges.shells.disliked = editablePointRanges.shells.disliked.map(v => v * 0.75) as [number, number];
       
@@ -1823,6 +1868,10 @@ const renderNpcRow = () => (
         }
       },
       () => {
+        editablePointRanges.shells.favored = [
+          editablePointRanges.shells.favored[0] * 0.75,
+          editablePointRanges.shells.favored[1] * 0.75,
+        ];
         editablePointRanges.shells.neutral = [
           editablePointRanges.shells.neutral[0] * 0.75,
           editablePointRanges.shells.neutral[1] * 0.75,
@@ -2317,6 +2366,7 @@ const renderNpcRow = () => (
             onAccept={() => handleOptionSelect('buy')}
             onDecline={() => handleOptionSelect('decline')}
             onRemoveItem={handleRemoveFromOffer}
+            likes={tradePreferences.likes}
             dislikes={tradePreferences.dislikes}
             onLeftPanMeasured={(pos) => { leftPanPositionRef.current = pos; setLeftPanPosition(pos); }}
             onRightPanMeasured={(pos) => { rightPanPositionRef.current = pos; setRightPanPosition(pos); }}

@@ -19,6 +19,7 @@ type Props = {
     onAccept: () => void;
     onDecline: () => void;
     onRemoveItem: (resource: ResourceType) => void;
+    likes: ResourceType[];
     dislikes: ResourceType[];
     onLeftPanMeasured?: (pos: { x: number; y: number }) => void;
     onRightPanMeasured?: (pos: { x: number; y: number }) => void;
@@ -36,6 +37,7 @@ export const TradeModal = ({
     onAccept,
     onDecline,
     onRemoveItem,
+    likes,
     dislikes,
     onLeftPanMeasured,
     onRightPanMeasured,
@@ -45,7 +47,7 @@ export const TradeModal = ({
     tutorialText,
 
     }: Props) => {
-        // Animation for labels ("Dislikes:")
+        // Animation for labels ("Likes:" and "Dislikes:")
         const labelAnim = React.useRef(new Animated.Value(1)).current;
         // Animation for preference icons (resource images)
         const iconAnim = React.useRef(new Animated.Value(1)).current;
@@ -132,8 +134,27 @@ export const TradeModal = ({
                 </View>
             )}
 
-            {/* Dislikes */}
+            {/* Likes and Dislikes */}
                 <View style={styles.preferencesRow}>
+                    <View style={styles.preferenceRowItem}>
+                    {(likes.length > 0) && (
+                        <Animated.Text style={[styles.preferenceLabel, { transform: [{ scale: labelAnim }] }]}>
+                            Likes:
+                        </Animated.Text>
+                    )}
+                            {likes.map((res) => (
+                            <Animated.View
+                                key={`like-${res}`}
+                                    style={{ transform: [{ scale: iconAnim }] }}
+                                >
+                                <View style={styles.smallIconWrapper}>
+                                    <ResourceDisplay name={res} amount={0} showAmount={false} />
+                                </View>
+                            </Animated.View>
+                        ))}
+    
+                    </View>
+
                     <View style={styles.preferenceRowItem}>
                     {(dislikes.length > 0) && (
                         <Animated.Text style={[styles.preferenceLabel, { transform: [{ scale: labelAnim }] }]}>
