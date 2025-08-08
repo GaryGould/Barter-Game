@@ -842,6 +842,10 @@ export default function App() {
   const [showRestartDialog, setShowRestartDialog] = useState(false);
   const [showHintDialog, setShowHintDialog] = useState(false);
   const [showHintBeforeRestart, setShowHintBeforeRestart] = useState(false);
+  
+  // --- Low on items button animation ---
+  const lowItemsButtonScale = useRef(new Animated.Value(1)).current;
+  const lowItemsPulseRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const withEventGate = React.useCallback((fn: () => void) => {      // ⟵ NEW
     if (eventLock || activeEvent) {
@@ -1002,6 +1006,49 @@ export default function App() {
         unitValues[resource as ResourceType] *= 2;
       }
     }
+    
+    // Calculate total inventory value using lowest neutral values (no multiplier)
+    // This is only for the "low on items" check, not for trade calculations
+    const baseValues: Record<ResourceType, number> = {
+      salt: editablePointRanges.salt.neutral[0],      // 1
+      apples: editablePointRanges.apples.neutral[0],  // 4
+      shells: editablePointRanges.shells.neutral[0],  // 8
+      pottery: editablePointRanges.pottery.neutral[0], // 12
+      tools: editablePointRanges.tools.neutral[0],    // 24
+      cow: 0,
+    };
+    
+    let totalInventoryValue = 0;
+    for (const [res, amount] of Object.entries(resources)) {
+      if (res !== 'cow' && amount > 0) {
+        totalInventoryValue += (baseValues[res as ResourceType] || 0) * amount;
+      }
+    }
+    
+    // Start pulse animation if inventory value is less than or equal to 15
+    if (totalInventoryValue <= 15) {
+      // Stop any existing animation
+      if (lowItemsPulseRef.current) {
+        lowItemsPulseRef.current.stop();
+      }
+      
+      // Create looping pulse animation
+      lowItemsPulseRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(lowItemsButtonScale, {
+            toValue: 1.3,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(lowItemsButtonScale, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      lowItemsPulseRef.current.start();
+    }
 
     // Compute trade amounts
     const [minGiveQty, maxGiveQty] = resourceQuantityRanges[give];
@@ -1056,6 +1103,12 @@ export default function App() {
   
   
   const handleOptionSelect = (option: 'buy' | 'decline') => {
+    // Stop the low items button animation when trade ends
+    if (lowItemsPulseRef.current) {
+      lowItemsPulseRef.current.stop();
+      lowItemsPulseRef.current = null;
+      lowItemsButtonScale.setValue(1);
+    }
     // Count this trade for shell cadence
     totalTradesRef.current += 1;
     if (totalTradesRef.current % SHELL_TRADE_INTERVAL === 0 && shellEventCountRef.current < 2) {
@@ -2396,28 +2449,34 @@ const renderNpcRow = () => (
                   alignItems: 'center',
                   zIndex: 1000,
                 }}>
-                  <TouchableOpacity
+                  <Animated.View
                     style={{
-                      backgroundColor: '#f0f0f0',
-                      borderWidth: 1,
-                      borderColor: '#d0d0d0',
-                      borderRadius: 8,
-                      paddingHorizontal: 16,
-                      paddingVertical: 8,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 3,
-                      elevation: 3,
+                      transform: [{ scale: lowItemsButtonScale }],
                     }}
-                    onPress={() => setShowHintDialog(true)}
                   >
-                    <Text style={{
-                      color: '#666',
-                      fontSize: 14,
-                      fontWeight: '500',
-                    }}>Low on items?</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#f0f0f0',
+                        borderWidth: 1,
+                        borderColor: '#d0d0d0',
+                        borderRadius: 8,
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 3,
+                        elevation: 3,
+                      }}
+                      onPress={() => setShowHintDialog(true)}
+                    >
+                      <Text style={{
+                        color: '#666',
+                        fontSize: 14,
+                        fontWeight: '500',
+                      }}>Low on items?</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
                 </View>
 
       {specialNpc && (
