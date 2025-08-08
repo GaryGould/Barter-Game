@@ -1,8 +1,7 @@
 //app.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { preloadAllImages, IMAGE_SOURCES } from './imageCache';
-// Initialize PostHog for session recordings
-import './utils/posthog';
+// PostHog for analytics (safe for all platforms)
 import { posthog } from './utils/posthog';
 import {
   View,
@@ -276,8 +275,7 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 
 
 export default function App() {
-  // --- Mobile Detection ---
-  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  // --- Mobile Detection --- (removed - game works on all devices)
   
   // --- Image Loading ---
   const [imagesReady, setImagesReady] = useState(false);
@@ -870,40 +868,7 @@ export default function App() {
     }
   }, [eventLock, activeEvent, systemEventQueue.length]);
 
-  // Mobile device detection
-  useEffect(() => {
-    // Check if running in native mobile app (Expo)
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      setIsMobileDevice(true);
-      return;
-    }
-    
-    // Web environment checks
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const checkMobile = () => {
-        // Check for mobile user agent
-        const userAgent = window.navigator?.userAgent?.toLowerCase() || '';
-        const isMobileUA = /iphone|ipod|ipad|android|blackberry|windows phone|opera mini|iemobile|mobile/.test(userAgent);
-        
-        // Check for touch support and small screen (backup check)
-        const hasTouch = 'ontouchstart' in window || (navigator?.maxTouchPoints || 0) > 0;
-        const isSmallScreen = window.innerWidth <= 768;
-        
-        setIsMobileDevice(isMobileUA || (hasTouch && isSmallScreen));
-      };
-      
-      checkMobile();
-      
-      // Only add event listener if addEventListener exists
-      if (window.addEventListener) {
-        window.addEventListener('resize', checkMobile);
-        
-        return () => {
-          window.removeEventListener('resize', checkMobile);
-        };
-      }
-    }
-  }, []);
+  // Mobile device detection removed - game works on all devices
 
   // Debug cheat codes for testing (web only)
   useEffect(() => {
@@ -2326,58 +2291,7 @@ const renderNpcRow = () => (
     };
   }, []);
 
-  // Mobile warning screen
-  if (isMobileDevice) {
-    return (
-      <View style={{
-        flex: 1,
-        backgroundColor: '#f0f0f0',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-      }}>
-        <View style={{
-          backgroundColor: 'white',
-          borderRadius: 20,
-          padding: 30,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
-          maxWidth: 400,
-          width: '100%',
-        }}>
-          <Text style={{
-            fontSize: 24,
-            fontWeight: 'bold',
-            color: '#e74c3c',
-            textAlign: 'center',
-            marginBottom: 20,
-          }}>
-            ⚠️ Mobile Device Detected
-          </Text>
-          <Text style={{
-            fontSize: 16,
-            color: '#333',
-            textAlign: 'center',
-            lineHeight: 24,
-          }}>
-            Warning: This app is not intended for mobile devices.
-          </Text>
-          <Text style={{
-            fontSize: 14,
-            color: '#666',
-            textAlign: 'center',
-            marginTop: 15,
-            lineHeight: 20,
-          }}>
-            Please access this game from a desktop or laptop computer for the best experience.
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  // Mobile warning screen removed - game now works on all devices
 
   return (
     <View style={styles.containerWrapper}>
@@ -2404,7 +2318,7 @@ const renderNpcRow = () => (
       </View>
       <FlyingResourceManager ref={flyingRef} />
       
-      {/* Web scaling wrapper - wraps everything except flying resources */}
+      {/* Scaling wrapper - wraps everything except flying resources */}
       <View style={Platform.OS === 'web' ? {
         position: 'absolute',
         bottom: 0,
@@ -2413,7 +2327,11 @@ const renderNpcRow = () => (
         top: 0,
         transform: [{ scale: webScale }],
         transformOrigin: 'center bottom',
-      } : {}}>
+      } : {
+        flex: 1,
+        width: '100%',
+        height: '100%',
+      }}>
 
       {/* Tutorial - Show first before main game */}
       {showTutorial ? (
@@ -2434,37 +2352,34 @@ const renderNpcRow = () => (
         />
       ) : (
         <>
-      
+          {/* Top Tab */}
+          {showWorldEvent && (
+            <Animated.View
+              style={[
+                styles.topTab,
+                {
+                  width: Math.min(width, MAX_PHONE_WIDTH),
+                  opacity: worldEventOpacity,
+                },
+              ]}
+            >
+              <Text style={styles.topTabText}>{worldEventText}</Text>
+            </Animated.View>
+          )}
 
-
-    {/* Top Tab */}
-    {showWorldEvent && (
-      <Animated.View
-        style={[
-          styles.topTab,
-          {
-            width: Math.min(width, MAX_PHONE_WIDTH),
-            opacity: worldEventOpacity,
-          },
-        ]}
-      >
-        <Text style={styles.topTabText}>{worldEventText}</Text>
-      </Animated.View>
-    )}
-
-    {/* Main Game Scene */}
-    <View
-      style={[
-        styles.container,
-        {
-          position: 'absolute',
-          bottom: 0,
-          left: '50%',
-          width: TOTAL_SCENE_WIDTH,
-          transform: [{ translateX: -TOTAL_SCENE_WIDTH / 2 }],
-        },
-      ]}
-    >
+          {/* Main Game Scene */}
+          <View
+            style={[
+              styles.container,
+              {
+                position: 'absolute',
+                bottom: 0,
+                left: '50%',
+                width: TOTAL_SCENE_WIDTH,
+                transform: [{ translateX: -TOTAL_SCENE_WIDTH / 2 }],
+              },
+            ]}
+          >
                 {/* Hint button - inside the virtual scene */}
                 <View style={{
                   position: 'absolute',
@@ -2570,7 +2485,7 @@ const renderNpcRow = () => (
           {renderRestartDialogs()}
         </>
       )}
-      </View> {/* End of web scaling wrapper */}
+      </View>
     </View>
   );
 
