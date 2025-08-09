@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   StyleSheet,
   Animated,
+  Easing,
   Platform
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -271,6 +272,304 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
   );
 };
 
+// Pottery Drop Component - completely self-contained
+const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
+  startX: number;
+  startY: number;
+  onCaught: () => void;
+  onMiss: () => void;
+}) => {
+  const [showOverlay, setShowOverlay] = useState(false);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const potteryX = useRef(new Animated.Value(startX)).current;
+  const potteryY = useRef(new Animated.Value(startY)).current;
+  const potteryOpacity = useRef(new Animated.Value(1)).current;
+  const catchLabelOpacity = useRef(new Animated.Value(1)).current;
+  const [isActive, setIsActive] = useState(true);
+  
+  const { height: screenH } = useWindowDimensions();
+
+  useEffect(() => {
+    // Show overlay
+    setShowOverlay(true);
+    Animated.timing(overlayOpacity, {
+      toValue: 0.8,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+
+    // Animate "Catch!" label fading
+    Animated.timing(catchLabelOpacity, {
+      toValue: 0,
+      duration: 1400,
+      delay: 600,
+      useNativeDriver: true,
+    }).start();
+
+    // Pottery motion - matching original exactly
+    const MIN_SPEED = 100; // Lowered max speed as requested
+    const MAX_SPEED = 160; // Lowered from 220
+    const duration = 2133; // Original duration in ms
+    const dx = -(MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED)) * (duration / 1000); // total px over duration
+    
+    // Arc parameters - less aggressive
+    const arcHeight = 100 + Math.random() * 30; // Reduced from 120-160
+    const fallEnd = screenH + 60;
+    
+    const progress = new Animated.Value(0);
+    let stopped = false;
+
+    const listenerId = progress.addListener(({ value: t }) => {
+      if (stopped) return;
+      
+      // Original arc calculation
+      const arcY = -arcHeight * (4 * t * (1 - t));           // parabolic arc
+      const gravityY = (fallEnd - startY) * (t * t * 0.7);   // reduced gravity acceleration
+      const posY = startY + arcY + gravityY;
+      const posX = startX + dx * t;
+      
+      potteryX.setValue(posX);
+      potteryY.setValue(posY);
+
+      // Ground hit
+      if (!stopped && posY >= screenH - 20) {
+        stopped = true;
+        progress.stopAnimation();
+        potteryOpacity.setValue(0);
+        hideOverlay();
+        onMiss();
+      }
+    });
+
+    const hideOverlay = () => {
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowOverlay(false);
+        setIsActive(false);
+      });
+    };
+
+    // Start animation - matching original exactly
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: duration,
+      easing: Easing.linear, // Important - matches original
+      useNativeDriver: false, // Must be false for JS-based calculations
+    }).start(({ finished }) => {
+      progress.removeListener(listenerId);
+      if (!finished) return;
+      // Safety fallback
+      if (!stopped) {
+        stopped = true;
+        potteryOpacity.setValue(0);
+        setIsActive(false);
+        onMiss();
+      }
+    });
+
+    return () => {
+      progress.removeListener(listenerId);
+      progress.stopAnimation();
+    };
+  }, []);
+
+  // State for "caught it!" labels
+  const [caughtLabels, setCaughtLabels] = useState<Array<{
+    id: number;
+    x: number;
+    y: number;
+    anim: Animated.ValueXY;
+    opacity: Animated.Value;
+  }>>([]);
+  const labelIdRef = useRef(0);
+  
+  const spawnCaughtLabel = (x: number, y: number) => {
+    console.log('Spawning caught label at:', x, y);
+    const id = labelIdRef.current++;
+    const anim = new Animated.ValueXY({ x, y });
+    const opacity = new Animated.Value(1);
+    
+    setCaughtLabels(prev => {
+      console.log('Adding label, prev count:', prev.length);
+      return [...prev, { id, x, y, anim, opacity }];
+    });
+    
+    // Animate the label rising and fading
+    Animated.parallel([
+      Animated.timing(anim, {
+        toValue: { x, y: y - 70 },
+        duration: 900,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(300),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      setCaughtLabels(prev => prev.filter(l => l.id !== id));
+    });
+  };
+  
+  const handleCatch = (e: any) => {
+    if (!isActive) return;
+    
+    // Stop animation immediately
+    potteryOpacity.setValue(0);
+    setIsActive(false);
+    
+    // Show "caught it!" text at touch location
+    const tapX = e.nativeEvent.pageX;
+    const tapY = e.nativeEvent.pageY;
+    spawnCaughtLabel(tapX, tapY);
+    
+    // Hide overlay
+    Animated.timing(overlayOpacity, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowOverlay(false);
+    });
+    
+    // Trigger callback
+    onCaught();
+  };
+
+  // Don't return null immediately - we need to render the caught labels even after pottery is caught
+  if (!isActive && caughtLabels.length === 0) return null;
+
+  return (
+    <>
+      {/* Dark overlay */}
+      {showOverlay && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '200%',
+            height: '200%',
+            backgroundColor: 'black',
+            opacity: overlayOpacity,
+            zIndex: 999990,
+          }}
+          pointerEvents="none"
+        />
+      )}
+
+      {/* Catch label */}
+      <Animated.Text
+        style={{
+          position: 'absolute',
+          left: startX - 30,
+          top: startY - 80,
+          color: 'white',
+          fontSize: 28,
+          fontWeight: 'bold',
+          textShadowColor: 'black',
+          textShadowOffset: { width: 1, height: 1 },
+          textShadowRadius: 3,
+          opacity: catchLabelOpacity,
+          zIndex: 999997,
+        }}
+        pointerEvents="none"
+      >
+        Catch!
+      </Animated.Text>
+
+      {/* Falling pottery */}
+      {isActive && (
+      <Animated.View
+        style={{
+          position: 'absolute',
+          left: potteryX,
+          top: potteryY,
+          opacity: potteryOpacity,
+          transform: [{ translateX: -30 }, { translateY: -30 }],
+          zIndex: 999998,
+        }}
+      >
+        <TouchableOpacity
+          onPressIn={handleCatch}
+          activeOpacity={1}
+          style={{ 
+            padding: 20,
+            cursor: 'pointer',
+            // Prevent browser drag selection - cast to any for web-specific properties
+            ...({
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+            } as any),
+          }}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        >
+          <Image
+            source={IMAGE_SOURCES.pottery}
+            style={{ 
+              width: 60, 
+              height: 60,
+              pointerEvents: 'none',
+              // Prevent drag on web - cast to any for web-specific properties
+              ...({
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none',
+                WebkitUserDrag: 'none',
+                userDrag: 'none',
+              } as any),
+            }}
+            contentFit="contain"
+            transition={0}
+            {...({ draggable: false } as any)}
+          />
+        </TouchableOpacity>
+      </Animated.View>
+      )}
+
+      {/* "caught it!" labels - render AFTER pottery to ensure they're on top */}
+      {console.log('Rendering labels, count:', caughtLabels.length)}
+      {caughtLabels.map(label => {
+        console.log('Rendering label:', label.id, 'at', label.x, label.y);
+        return (
+        <Animated.View
+          key={`caught-${label.id}`}
+          style={{
+            position: 'absolute',
+            backgroundColor: 'white',
+            borderRadius: 14,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            shadowColor: '#000',
+            shadowOpacity: 0.15,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+            opacity: label.opacity,
+            transform: label.anim.getTranslateTransform(),
+            zIndex: 999999,
+          }}
+          pointerEvents="none"
+        >
+          <Text style={{ color: 'black', fontWeight: 'bold' }}>caught it!</Text>
+        </Animated.View>
+        );
+      })}
+    </>
+  );
+};
+
 
 
 
@@ -321,6 +620,14 @@ export default function App() {
 
   //flying item animation
   const flyingRef = useRef<FlyingResourceManagerHandle>(null);
+  
+  // Pottery drop state
+  const [droppingPottery, setDroppingPottery] = useState<{
+    x: number;
+    y: number;
+    onCaught: () => void;
+    onMiss: () => void;
+  } | null>(null);
 
 
   //special npc animation
@@ -1223,18 +1530,18 @@ const npcTotal = (setTrade as any).debug?.giveTotalValue || 0;
 
                   console.log('Pottery drop at:', { startX, startY, sceneWidth: TOTAL_SCENE_WIDTH }); // Debug log
 
-                  nextFrame(() => {
-                    flyingRef.current?.dropCatchablePottery(
-                      { x: startX, y: startY },
-                      {
-                        onCaught: () => {
-                          setEventLock(false);
-                        },
-                        onMiss: () => {
-                          handlePotteryBreak(() => setEventLock(false));
-                        },
-                      }
-                    );
+                  // Set the pottery drop state
+                  setDroppingPottery({
+                    x: startX,
+                    y: startY,
+                    onCaught: () => {
+                      setEventLock(false);
+                      setDroppingPottery(null);
+                    },
+                    onMiss: () => {
+                      handlePotteryBreak(() => setEventLock(false));
+                      setDroppingPottery(null);
+                    },
                   });
                 }
                 : undefined;
@@ -2423,8 +2730,9 @@ const renderNpcRow = () => (
           />
         ))}
       </View>
+      <FlyingResourceManager ref={flyingRef} />
       
-      {/* Scaling wrapper - wraps everything including flying resources */}
+      {/* Scaling wrapper - wraps everything except flying resources */}
       <View style={Platform.OS === 'web' ? {
         position: 'absolute',
         bottom: 0,
@@ -2486,7 +2794,16 @@ const renderNpcRow = () => (
               },
             ]}
           >
-                <FlyingResourceManager ref={flyingRef} />
+                {/* Pottery drop - renders exactly here when active */}
+                {droppingPottery && (
+                  <PotteryDrop
+                    startX={droppingPottery.x}
+                    startY={droppingPottery.y}
+                    onCaught={droppingPottery.onCaught}
+                    onMiss={droppingPottery.onMiss}
+                  />
+                )}
+                
                 {/* Hint button - inside the virtual scene */}
                 <View style={{
                   position: 'absolute',
