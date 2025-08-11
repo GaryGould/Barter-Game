@@ -4,6 +4,7 @@
     import { VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../normalize';
     import { ResourceType } from '../App';
     import { ResourceDisplay } from './ResourceDisplay';
+    import { noSelectImage, noSelectText } from '../styles/styles';
 
     type Trade = {
         give: ResourceType;
@@ -115,10 +116,10 @@ export const TradeModal = ({
                 left: -300, // outside virtual width
                 zIndex: 1000,
             }}>
-                <Text style={{ color: 'white', fontSize: 14 }}>
+                <Text style={[{ color: 'white', fontSize: 14 }, noSelectText]}>
                     (Debug) Trader's Offer: {npcValue.toFixed(2)} pts
                 </Text>
-                <Text style={{ color: 'white', fontSize: 14 }}>
+                <Text style={[{ color: 'white', fontSize: 14 }, noSelectText]}>
                     (Debug) Your Offer: {playerTotal.toFixed(2)} pts
                 </Text>
             </View>
@@ -189,6 +190,7 @@ export const TradeModal = ({
                             source={require('../assets/Icons/checkmark.png')}
                             style={[
                                 styles.checkmarkIcon,
+                                noSelectImage,
                                 { opacity: hasEnough ? 1 : 0 },
                             ]}
                         />
@@ -229,10 +231,10 @@ export const TradeModal = ({
                         }}
                         pointerEvents="none"
                     >
-                        <Text style={{ color: 'white', fontSize: 16 }}>
+                        <Text style={[{ color: 'white', fontSize: 16 }, noSelectText]}>
                             (Debug) Trader's Offer: {(trade.giveAmount * (unitValues[trade.give] || 0)).toFixed(2)} pts
                         </Text>
-                        <Text style={{ color: 'white', fontSize: 16 }}>
+                        <Text style={[{ color: 'white', fontSize: 16 }, noSelectText]}>
                             (Debug) Your Offer:{' '}
                             {Object.entries(playerOffer).reduce((total, [key, amount]) => {
                                 return total + (unitValues[key as ResourceType] || 0) * (amount || 0);
@@ -297,6 +299,7 @@ export const TradeModal = ({
             color: '#000',
             fontSize: 16,
             fontWeight: 'bold',
+            userSelect: 'none' as const,
         },
         smallIconWrapper: {
             transform: [{ scale: 0.5 }],
@@ -337,5 +340,6 @@ export const TradeModal = ({
             color: '#333',
             textAlign: 'center',
             fontWeight: '500',
+            userSelect: 'none' as const,
         },
     });

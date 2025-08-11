@@ -5,6 +5,7 @@ import { Animated, View, StyleSheet, Text, TouchableOpacity, Dimensions, Easing 
 import { Image } from 'expo-image';
 
 import { ResourceType } from '../App';
+import { noSelectImage, noSelectText } from '../styles/styles';
 
 const resourceIcons: Record<ResourceType, any> = {
     salt: IMAGE_SOURCES.salt,
@@ -395,7 +396,8 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                         style={[
                             { color: 'black', fontWeight: 'bold' },
                             // Bigger text for "Catch!"
-                            text === 'Catch!' && { fontSize: 24 }
+                            text === 'Catch!' && { fontSize: 24 },
+                            noSelectText
                         ]}
                     >
                         {text}
@@ -469,20 +471,11 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
 
                         <Image
                             source={resourceIcons[name]}
-                            style={{
+                            style={[{
                                 width: 58,
                                 height: 58,
                                 pointerEvents: 'none',
-                                // Prevent drag on web - cast to any for web-specific properties
-                                ...({
-                                    userSelect: 'none',
-                                    WebkitUserSelect: 'none',
-                                    MozUserSelect: 'none',
-                                    msUserSelect: 'none',
-                                    WebkitUserDrag: 'none',
-                                    userDrag: 'none',
-                                } as any),
-                            }}
+                            }, noSelectImage]}
                             contentFit="contain"
                             transition={0}
                             {...({ draggable: false } as any)}

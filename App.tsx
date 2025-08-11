@@ -18,7 +18,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { nextFrame, startFrameLoop } from './utils/safeTimers';
 
 //styles
-import { styles } from './styles/styles';
+import { styles, noSelectImage, noSelectText } from './styles/styles';
 import {
   SCENE_SCALE,
   TOTAL_SCENE_WIDTH,
@@ -533,20 +533,11 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss, onCatchWithPosition }: 
         >
           <Image
             source={IMAGE_SOURCES.pottery}
-            style={{ 
+            style={[{ 
               width: 60, 
               height: 60,
               pointerEvents: 'none',
-              // Prevent drag on web - cast to any for web-specific properties
-              ...({
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                WebkitUserDrag: 'none',
-                userDrag: 'none',
-              } as any),
-            }}
+            }, noSelectImage]}
             contentFit="contain"
             transition={0}
             {...({ draggable: false } as any)}
@@ -577,7 +568,7 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss, onCatchWithPosition }: 
           }}
           pointerEvents="none"
         >
-          <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 18 }}>nice catch</Text>
+          <Text style={[{ color: 'black', fontWeight: 'bold', fontSize: 18 }, noSelectText]}>nice catch</Text>
         </Animated.View>
       ))}
     </>
@@ -2350,10 +2341,10 @@ const renderNpcRow = () => (
               { maxWidth: Math.min(width - 32, 420) } 
             ]}
           >
-            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 10 }}>
+            <Text style={[{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 10 }, noSelectText]}>
               Hint:
             </Text>
-            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
+            <Text style={[{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }, noSelectText]}>
               Try to make favorable deals, and plan a few trades ahead.
             </Text>
             <TouchableOpacity
@@ -2365,7 +2356,7 @@ const renderNpcRow = () => (
               }}
               onPress={handleRestartGame}
             >
-              <Text style={{ color: 'white', fontWeight: '700' }}>Restart</Text>
+              <Text style={[{ color: 'white', fontWeight: '700' }, noSelectText]}>Restart</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2390,7 +2381,7 @@ const renderNpcRow = () => (
               { maxWidth: Math.min(width - 32, 420) } 
             ]}
           >
-            <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20 }}>
+            <Text style={[{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20 }, noSelectText]}>
               Want to start over with a different trade good?
             </Text>
             <View style={{ flexDirection: 'row', gap: 16 }}>
@@ -2406,7 +2397,7 @@ const renderNpcRow = () => (
                   setShowHintBeforeRestart(true);
                 }}
               >
-                <Text style={{ color: 'white', fontWeight: '700' }}>Yes</Text>
+                <Text style={[{ color: 'white', fontWeight: '700' }, noSelectText]}>Yes</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -2417,7 +2408,7 @@ const renderNpcRow = () => (
                 }}
                 onPress={() => setShowHintDialog(false)}
               >
-                <Text style={{ color: 'white', fontWeight: '700' }}>No</Text>
+                <Text style={[{ color: 'white', fontWeight: '700' }, noSelectText]}>No</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2443,7 +2434,7 @@ const renderNpcRow = () => (
               { maxWidth: Math.min(width - 32, 420) } 
             ]}
           >
-            <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
+            <Text style={[{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }, noSelectText]}>
               Restart with a different trade item?
             </Text>
             <View style={{ flexDirection: 'row', gap: 16 }}>
@@ -2456,7 +2447,7 @@ const renderNpcRow = () => (
                 }}
                 onPress={handleRestartGame}
               >
-                <Text style={{ color: 'white', fontWeight: '700' }}>Yes</Text>
+                <Text style={[{ color: 'white', fontWeight: '700' }, noSelectText]}>Yes</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -2467,7 +2458,7 @@ const renderNpcRow = () => (
                 }}
                 onPress={() => setShowRestartDialog(false)}
               >
-                <Text style={{ color: 'white', fontWeight: '700' }}>No</Text>
+                <Text style={[{ color: 'white', fontWeight: '700' }, noSelectText]}>No</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2543,12 +2534,12 @@ const renderNpcRow = () => (
         />
         
         <Text
-          style={{
+          style={[{
             fontSize: 18,
             color: '#333',
             textAlign: 'center',
             fontWeight: '600',
-          }}
+          }, noSelectText]}
         >
           Click a trader above to get started
         </Text>
@@ -2589,12 +2580,12 @@ const renderNpcRow = () => (
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 18, color: '#333' }}>
+              <Text style={[{ fontSize: 18, color: '#333' }, noSelectText]}>
                 a trader dropped one of your{' '}
               </Text>
               <Image
                 source={resourceIcons['brokenpottery']}
-                style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                style={[{ width: 28, height: 28, marginHorizontal: 2 }, noSelectImage]}
                 resizeMode="contain"
               />
             </View>
@@ -2608,19 +2599,19 @@ const renderNpcRow = () => (
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 18, color: '#333' }}>
+                <Text style={[{ fontSize: 18, color: '#333' }, noSelectText]}>
                   a bunch of{' '}
                 </Text>
                 <Image
                   source={resourceIcons['shells']}
-                  style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                  style={[{ width: 28, height: 28, marginHorizontal: 2 }, noSelectImage]}
                   resizeMode="contain"
                 />
-                <Text style={{ fontSize: 18, color: '#333' }}>
+                <Text style={[{ fontSize: 18, color: '#333' }, noSelectText]}>
                   {' '}washed up on the beach.
                 </Text>
               </View>
-              <Text style={{ fontSize: 18, color: '#333', marginTop: 4, textAlign: 'center' }}>
+              <Text style={[{ fontSize: 18, color: '#333', marginTop: 4, textAlign: 'center' }, noSelectText]}>
                 They are now less valuable.
               </Text>
             </View>
@@ -2635,15 +2626,15 @@ const renderNpcRow = () => (
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 18, color: '#333' }}>
+              <Text style={[{ fontSize: 18, color: '#333' }, noSelectText]}>
                 {amount} of your{' '}
               </Text>
               <Image
                 source={resourceIcons['apples']}
-                style={{ width: 28, height: 28, marginHorizontal: 2 }}
+                style={[{ width: 28, height: 28, marginHorizontal: 2 }, noSelectImage]}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: 18, color: '#333' }}>
+              <Text style={[{ fontSize: 18, color: '#333' }, noSelectText]}>
                 {' '}spoiled
               </Text>
             </View>
@@ -2657,17 +2648,17 @@ const renderNpcRow = () => (
               }}
             >
               {amount != null && (
-                <Text style={{ fontSize: 18, color: '#333', marginRight: 6 }}>
+                <Text style={[{ fontSize: 18, color: '#333', marginRight: 6 }, noSelectText]}>
                   {amount}
                 </Text>
               )}
               <Image
                 source={resourceIcons[resource]}
-                style={{ width: 28, height: 28, marginRight: message ? 6 : 0 }}
+                style={[{ width: 28, height: 28, marginRight: message ? 6 : 0 }, noSelectImage]}
                 resizeMode="contain"
               />
               {message && (
-                <Text style={{ fontSize: 18, color: '#333', textAlign: 'center' }}>
+                <Text style={[{ fontSize: 18, color: '#333', textAlign: 'center' }, noSelectText]}>
                   {message}
                 </Text>
               )}
@@ -2683,7 +2674,7 @@ const renderNpcRow = () => (
             }}
             onPress={handleCloseEvent}
           >
-            <Text style={{ color: '#0b2b13', fontWeight: '700' }}>OK</Text>
+            <Text style={[{ color: '#0b2b13', fontWeight: '700' }, noSelectText]}>OK</Text>
           </TouchableOpacity>
         </View>
 
@@ -2772,11 +2763,11 @@ const renderNpcRow = () => (
           <Image
             key={`preload-${index}`}
             source={source}
-            style={{
+            style={[{
               width: 80,  // Use real sizes
               height: 80,
               margin: 5,
-            }}
+            }, noSelectImage]}
             transition={0}
             contentFit="contain"
           />
@@ -2896,11 +2887,11 @@ const renderNpcRow = () => (
                       }}
                       onPress={() => setShowHintDialog(true)}
                     >
-                      <Text style={{
+                      <Text style={[{
                         color: '#666',
                         fontSize: 14,
                         fontWeight: '500',
-                      }}>Low on items?</Text>
+                      }, noSelectText]}>Low on items?</Text>
                     </TouchableOpacity>
                   </Animated.View>
                 </View>
@@ -2926,11 +2917,11 @@ const renderNpcRow = () => (
             <TouchableOpacity onPress={handleSpecialNpcPress}>
                         <Image
                           source={specialNpc.sprite}
-                          style={{
+                          style={[{
                             width: 80,
                             height: 80,
                             transform: specialNpc.direction === 'left' ? [{ scaleX: -1 }] : [{ scaleX: 1 }],
-                          }}
+                          }, noSelectImage]}
                           contentFit="contain"
                           transition={0}
                         />
@@ -3001,7 +2992,7 @@ const renderNpcRow = () => (
             pointerEvents: 'none',
           }}
         >
-          <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 18 }}>nice catch</Text>
+          <Text style={[{ color: 'black', fontWeight: 'bold', fontSize: 18 }, noSelectText]}>nice catch</Text>
         </Animated.View>
       ))}
     </View>

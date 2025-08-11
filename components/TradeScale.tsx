@@ -8,6 +8,7 @@ import { nextFrame, startFrameLoop } from '../utils/safeTimers';
   import { CLAMPED_WIDTH } from '../normalize';
   import { ResourceType } from '../App';
   import { resourceIcons } from '../resourceRegistry';
+  import { noSelectImage } from '../styles/styles';
 
  
 // Create animated version of expo-image
@@ -293,7 +294,7 @@ export const TradeScale = ({
               style={styles.itemWithCount}
               {...wrapperProps}
             >
-              <Image source={resourceIcons[res]} style={styles.itemIcon} contentFit="contain" transition={0} />
+              <Image source={resourceIcons[res]} style={[styles.itemIcon, noSelectImage]} contentFit="contain" transition={0} />
               {!hideNumbers && (
                 <View style={styles.countCircle}>
                   <Text style={styles.countCircleText}>{count}</Text>
@@ -322,6 +323,7 @@ export const TradeScale = ({
           source={beamImage}
           style={[
             styles.beam,
+            noSelectImage,
             {
               transform: [{
                 rotate: animatedRotation.interpolate({
@@ -339,6 +341,7 @@ export const TradeScale = ({
           source={panImage}
           style={[
             styles.pan,
+            noSelectImage,
             {
               transform: [
                 { translateX: animatedLeftPanX },
@@ -373,6 +376,7 @@ export const TradeScale = ({
           source={panImage}
           style={[
             styles.pan,
+            noSelectImage,
             {
               transform: [
                 { translateX: animatedRightPanX },
@@ -467,6 +471,7 @@ export const cancelAllScaleRemovals = () => {
       color: 'black',
       fontWeight: 'bold',
       fontSize: 12,
+      userSelect: 'none' as const,
     },
     countText: {
       color: '#fff',

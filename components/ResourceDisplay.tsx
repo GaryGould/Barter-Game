@@ -83,6 +83,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: 'black',
+    userSelect: 'none' as const,
   },
   icon: {
     width: 72,

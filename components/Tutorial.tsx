@@ -16,7 +16,7 @@ import { Image } from 'expo-image';
 import { posthog } from '../utils/posthog';
 import { nextFrame, startFrameLoop } from '../utils/safeTimers';
 
-import { styles } from '../styles/styles';
+import { styles, noSelectImage, noSelectText } from '../styles/styles';
 import {
     TOTAL_SCENE_WIDTH,
     MAX_PHONE_WIDTH,
@@ -286,6 +286,7 @@ const tutorialStyles = {
         textAlign: 'center' as const,
         marginBottom: 10,
         color: '#000',
+        userSelect: 'none' as const,
     },
     tutorialText: {
         fontSize: 20,
@@ -293,6 +294,7 @@ const tutorialStyles = {
         color: '#000',
         lineHeight: 30,
         marginBottom: 20,
+        userSelect: 'none' as const,
     },
     continueButton: {
         marginTop: 60,
@@ -305,6 +307,7 @@ const tutorialStyles = {
         color: '#ffffff',
         fontWeight: '700' as const,
         fontSize: 16,
+        userSelect: 'none' as const,
     },
 };
 
@@ -794,7 +797,7 @@ export const Tutorial = ({
             <View style={tutorialStyles.tutorialSlide} pointerEvents="auto">
                 <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
                     <Text style={[tutorialStyles.tutorialSubtext, { marginBottom: 30, textAlign: 'center', fontSize: 18 }]}>
-                        Be aware that this game requires strategy to win. Randomly guessing will take longer and <Text style={{ fontWeight: 'bold' }}>disqualify</Text> you. Type "I understand" to continue.
+                        Be aware that this game requires strategy to win. Randomly guessing will take longer and <Text style={[{ fontWeight: 'bold' }, noSelectText]}>disqualify</Text> you. Type "I understand" to continue.
                     </Text>
                     
                     <View style={{
@@ -875,8 +878,8 @@ export const Tutorial = ({
 
                     {currentSlide.images && currentSlide.images.map((img, index) => (
                         <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
-                            <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} contentFit="contain" transition={0} />
-                            <Text style={{ fontSize: 24, color: '#000', fontWeight: '600' }}>{img.text}</Text>
+                            <Image source={img.src} style={[{ width: 40, height: 40, marginRight: 10 }, noSelectImage]} contentFit="contain" transition={0} />
+                            <Text style={[{ fontSize: 24, color: '#000', fontWeight: '600' }, noSelectText]}>{img.text}</Text>
                         </View>
                     ))}
 
@@ -887,8 +890,8 @@ export const Tutorial = ({
                             </Text>
                             {currentSlide.animatedContent.images && currentSlide.animatedContent.images.map((img, index) => (
                                 <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
-                                    <Image source={img.src} style={{ width: 40, height: 40, marginRight: 10 }} contentFit="contain" transition={0} />
-                                    <Text style={{ fontSize: 24, color: '#000', fontWeight: '600' }}>{img.text}</Text>
+                                    <Image source={img.src} style={[{ width: 40, height: 40, marginRight: 10 }, noSelectImage]} contentFit="contain" transition={0} />
+                                    <Text style={[{ fontSize: 24, color: '#000', fontWeight: '600' }, noSelectText]}>{img.text}</Text>
                                 </View>
                             ))}
                         </Animated.View>
@@ -897,19 +900,19 @@ export const Tutorial = ({
                     {currentSlide.preferences && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 40 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }}>likes</Text>
-                                <Image source={currentSlide.preferences.likes} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
+                                <Text style={[{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }, noSelectText]}>likes</Text>
+                                <Image source={currentSlide.preferences.likes} style={[{ width: 40, height: 40 }, noSelectImage]} contentFit="contain" transition={0} />
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }}>dislikes</Text>
+                                <Text style={[{ fontSize: 18, color: '#000', fontWeight: '600', marginRight: 10 }, noSelectText]}>dislikes</Text>
                                 {Array.isArray(currentSlide.preferences.dislikes) ? (
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
                                         {currentSlide.preferences.dislikes.map((dislike, index) => (
-                                            <Image key={index} source={dislike} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
+                                            <Image key={index} source={dislike} style={[{ width: 40, height: 40 }, noSelectImage]} contentFit="contain" transition={0} />
                                         ))}
                                     </View>
                                 ) : (
-                                    <Image source={currentSlide.preferences.dislikes} style={{ width: 40, height: 40 }} contentFit="contain" transition={0} />
+                                    <Image source={currentSlide.preferences.dislikes} style={[{ width: 40, height: 40 }, noSelectImage]} contentFit="contain" transition={0} />
                                 )}
                             </View>
                         </View>
@@ -918,13 +921,13 @@ export const Tutorial = ({
                     {/* Show completion code on final slide as backup */}
                     {isOutroMode && currentSlide?.type === 'text' && currentSlide?.content === 'Thanks — all done' && (
                         <View style={{ marginTop: 20, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
+                            <Text style={[{ fontSize: 14, color: '#666', marginBottom: 8 }, noSelectText]}>
                                 Redirecting to Prolific in 5 seconds...
                             </Text>
-                            <Text style={{ fontSize: 12, color: '#999' }}>
+                            <Text style={[{ fontSize: 12, color: '#999' }, noSelectText]}>
                                 If redirect fails, use completion code:
                             </Text>
-                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 4 }}>
+                            <Text style={[{ fontSize: 16, fontWeight: 'bold', color: '#333', marginTop: 4 }, noSelectText]}>
                                 C1NY1UP7
                             </Text>
                         </View>
@@ -996,11 +999,11 @@ export const Tutorial = ({
                 <React.Fragment key={index}>
                     <Image
                         source={item}
-                        style={{ width: 40, height: 40 }}
+                        style={[{ width: 40, height: 40 }, noSelectImage]}
                         contentFit="contain" transition={0}
                         />
                     {currentSlide.animatedContent?.chain && index < currentSlide.animatedContent.chain.length - 1 && (
-                        <Text style={{ fontSize: 24, color: '#000', fontWeight: '600', marginHorizontal: 10 }}>
+                        <Text style={[{ fontSize: 24, color: '#000', fontWeight: '600', marginHorizontal: 10 }, noSelectText]}>
                             &lt;
                         </Text>
                     )}
@@ -1015,9 +1018,9 @@ export const Tutorial = ({
 
                     {currentSlide.comparison && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 30 }}>
-                            <Image source={currentSlide.comparison.left} style={{ width: 50, height: 50 }} contentFit="contain" transition={0} />
-                            <Text style={{ fontSize: 32, color: '#000', fontWeight: '600', marginHorizontal: 20 }}>&lt;</Text>
-                            <Image source={currentSlide.comparison.right} style={{ width: 50, height: 50 }} contentFit="contain" transition={0} />
+                            <Image source={currentSlide.comparison.left} style={[{ width: 50, height: 50 }, noSelectImage]} contentFit="contain" transition={0} />
+                            <Text style={[{ fontSize: 32, color: '#000', fontWeight: '600', marginHorizontal: 20 }, noSelectText]}>&lt;</Text>
+                            <Image source={currentSlide.comparison.right} style={[{ width: 50, height: 50 }, noSelectImage]} contentFit="contain" transition={0} />
                         </View>
                     )}
 
@@ -1320,19 +1323,19 @@ export const Tutorial = ({
                                     >
                                         <Image
                                             source={item.icon}
-                                            style={{ width: 50, height: 50, marginBottom: 8 }}
+                                            style={[{ width: 50, height: 50, marginBottom: 8 }, noSelectImage]}
                                             contentFit="contain" transition={0}
                                         />
-                                        <Text style={{
+                                        <Text style={[{
                                             fontSize: 14,
                                             fontWeight: isSelected ? '700' : '600',
                                             color: '#000',
                                             textAlign: 'center'
-                                        }}>
+                                        }, noSelectText]}>
                                             {item.label}
                                         </Text>
                                         {!isOutroMode && (
-                                            <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                            <Text style={[{ fontSize: 12, color: '#666', marginTop: 4 }, noSelectText]}>
                                                 x {item.quantity}
                                             </Text>
                                         )}
@@ -1353,11 +1356,11 @@ export const Tutorial = ({
                             marginTop: 20,
                         }}
                     >
-                        <Text style={{
+                        <Text style={[{
                             color: tempSelectedItem ? '#ffffff' : '#999',
                             fontWeight: '700',
                             fontSize: 16,
-                        }}>
+                        }, noSelectText]}>
                             {isOutroMode ? 'Next' : 'Barter!'}
                         </Text>
                     </TouchableOpacity>
@@ -1404,13 +1407,13 @@ export const Tutorial = ({
                                         {comparisonIcons?.other && (
                                             <Image
                                                 source={comparisonIcons.other}
-                                                style={{
+                                                style={[{
                                                     width: 30,
                                                     height: 30,
                                                     marginLeft: 8,
                                                     marginRight: 8,
                                                     marginBottom: -4
-                                                }}
+                                                }, noSelectImage]}
                                                 contentFit="contain" transition={0}
                                             />
                                         )}
@@ -1420,13 +1423,13 @@ export const Tutorial = ({
                                         {comparisonIcons?.selected && (
                                             <Image
                                                 source={comparisonIcons.selected}
-                                                style={{
+                                                style={[{
                                                     width: 30,
                                                     height: 30,
                                                     marginLeft: 8,
                                                     marginRight: 8,
                                                     marginBottom: -4
-                                                }}
+                                                }, noSelectImage]}
                                                 contentFit="contain" transition={0}
                                             />
                                         )}
@@ -1462,11 +1465,11 @@ export const Tutorial = ({
                             </View>
 
                             {!isValidInput && !isOptional && (
-                                <Text style={{
+                                <Text style={[{
                                     fontSize: 12,
                                     color: '#999',
                                     marginBottom: 15
-                                }}>
+                                }, noSelectText]}>
                                     4 words minimum
                                 </Text>
                             )}
@@ -1520,7 +1523,7 @@ export const Tutorial = ({
                             <View style={{ alignItems: 'center', marginBottom: 20 }}>
                                 <Image
                                     source={selectedItemIcon}
-                                    style={{ width: 60, height: 60, marginBottom: 10 }}
+                                    style={[{ width: 60, height: 60, marginBottom: 10 }, noSelectImage]}
                                     contentFit="contain" transition={0}
                                 />
                             </View>
@@ -1558,11 +1561,11 @@ export const Tutorial = ({
                         </View>
 
                         {!isValidInput && (
-                            <Text style={{
+                            <Text style={[{
                                 fontSize: 12,
                                 color: '#999',
                                 marginBottom: 15
-                            }}>
+                            }, noSelectText]}>
                                 4 words minimum
                             </Text>
                         )}

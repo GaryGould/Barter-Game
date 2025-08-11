@@ -15,6 +15,7 @@ topTabText: {
   color: 'white',
   fontSize: 16,
   textAlign: 'center',
+  userSelect: 'none' as const,
 },
 
 
@@ -58,6 +59,7 @@ containerWrapper: {
     color: '#000000',
     fontSize: 16,
     fontWeight: 'bold',
+    userSelect: 'none' as const,
   },
   tradeOverlay: {
     position: 'absolute',
@@ -118,14 +120,17 @@ resourceRow: {
     fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 20,
+    userSelect: 'none' as const,
   },
   victoryEmoji: {
     fontSize: 80,
+    userSelect: 'none' as const,
   },
   victorySubtitle: {
     fontSize: 18,
     marginTop: 30,
     textAlign: 'center',
+    userSelect: 'none' as const,
   },
   victoryButton: {
     marginTop: 40,
@@ -137,6 +142,7 @@ resourceRow: {
   victoryButtonText: {
     color: 'white',
     fontSize: 16,
+    userSelect: 'none' as const,
   },
   // --- Event popup ---
   eventPopupCard: {
@@ -161,6 +167,7 @@ resourceRow: {
     color: '#222',
     textAlign: 'center',
     flexShrink: 1,
+    userSelect: 'none' as const,
   },
   eventIconLg: {
     width: 36,
@@ -169,3 +176,19 @@ resourceRow: {
   },
 
 });
+
+// Helper style to prevent image selection and dragging
+export const noSelectImage = {
+  userSelect: 'none' as const,
+  WebkitUserSelect: 'none' as const,
+  MozUserSelect: 'none' as const,
+  msUserSelect: 'none' as const,
+  WebkitUserDrag: 'none' as const,
+  userDrag: 'none' as const,
+  pointerEvents: 'auto' as const,
+} as any;
+
+// Helper style to prevent text selection
+export const noSelectText = {
+  userSelect: 'none' as const,
+} as const;

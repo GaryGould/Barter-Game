@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { VIRTUAL_WIDTH } from '../normalize';
+import { noSelectImage } from '../styles/styles';
 
 type Direction = 'left' | 'right';
 
@@ -58,7 +59,7 @@ export function NPCSlot({
             justifyContent: 'center',
           }}
         >
-          <Image source={npc.sprite} style={styles.sprite} resizeMode="contain" />
+          <Image source={npc.sprite} style={[styles.sprite, noSelectImage]} resizeMode="contain" />
         </Animated.View>
       </Animated.View>
     </Pressable>
