@@ -1,5 +1,5 @@
 //app.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { preloadAllImages, IMAGE_SOURCES } from './imageCache';
 // PostHog for analytics (safe for all platforms)
 import { posthog } from './utils/posthog';
@@ -273,11 +273,12 @@ const PieTimer = ({ progress, animate = true, onDepleted }: { progress: number; 
 };
 
 // Pottery Drop Component - completely self-contained
-const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
+const PotteryDrop = ({ startX, startY, onCaught, onMiss, onCatchWithPosition }: {
   startX: number;
   startY: number;
   onCaught: () => void;
   onMiss: () => void;
+  onCatchWithPosition?: (x: number, y: number) => void;
 }) => {
   const [showOverlay, setShowOverlay] = useState(false);
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -376,7 +377,7 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
     };
   }, []);
 
-  // State for "caught it!" labels
+  // State for "nice catch" labels
   const [caughtLabels, setCaughtLabels] = useState<Array<{
     id: number;
     x: number;
@@ -387,15 +388,11 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
   const labelIdRef = useRef(0);
   
   const spawnCaughtLabel = (x: number, y: number) => {
-    console.log('Spawning caught label at:', x, y);
     const id = labelIdRef.current++;
     const anim = new Animated.ValueXY({ x, y });
     const opacity = new Animated.Value(1);
     
-    setCaughtLabels(prev => {
-      console.log('Adding label, prev count:', prev.length);
-      return [...prev, { id, x, y, anim, opacity }];
-    });
+    setCaughtLabels(prev => [...prev, { id, x, y, anim, opacity }]);
     
     // Animate the label rising and fading
     Animated.parallel([
@@ -424,10 +421,33 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
     potteryOpacity.setValue(0);
     setIsActive(false);
     
-    // Show "caught it!" text at touch location
-    const tapX = e.nativeEvent.pageX;
-    const tapY = e.nativeEvent.pageY;
-    spawnCaughtLabel(tapX, tapY);
+    // Get current pottery position
+    const currentPotteryX = (potteryX as any)._value;
+    const currentPotteryY = (potteryY as any)._value;
+    
+    // If we have the new callback, use it to spawn text at the global level
+    if (onCatchWithPosition) {
+      onCatchWithPosition(currentPotteryX, currentPotteryY);
+    } else {
+      // Fallback to old behavior
+      // Try to get touch coordinates, fall back to pottery position
+      let tapX = e.nativeEvent.pageX || e.nativeEvent.locationX || currentPotteryX;
+      let tapY = e.nativeEvent.pageY || e.nativeEvent.locationY || currentPotteryY;
+      
+      
+      // Use pottery position if touch coordinates are invalid
+      if (isNaN(tapX) || isNaN(tapY) || tapX === undefined || tapY === undefined) {
+        tapX = currentPotteryX;
+        tapY = currentPotteryY;
+      }
+      
+      // Spawn the caught label with adjusted position (centered on touch point)
+      // Adjust for label width (~100px) and pottery center offset
+      spawnCaughtLabel(tapX - 40, tapY + 10);
+      
+      // Trigger callback
+      onCaught();
+    }
     
     // Hide overlay
     Animated.timing(overlayOpacity, {
@@ -437,9 +457,6 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
     }).start(() => {
       setShowOverlay(false);
     });
-    
-    // Trigger callback
-    onCaught();
   };
 
   // Don't return null immediately - we need to render the caught labels even after pottery is caught
@@ -538,34 +555,31 @@ const PotteryDrop = ({ startX, startY, onCaught, onMiss }: {
       </Animated.View>
       )}
 
-      {/* "caught it!" labels - render AFTER pottery to ensure they're on top */}
-      {console.log('Rendering labels, count:', caughtLabels.length)}
-      {caughtLabels.map(label => {
-        console.log('Rendering label:', label.id, 'at', label.x, label.y);
-        return (
+      {/* "nice catch" labels - render AFTER pottery to ensure they're on top */}
+      {caughtLabels.map(label => (
         <Animated.View
           key={`caught-${label.id}`}
           style={{
             position: 'absolute',
             backgroundColor: 'white',
             borderRadius: 14,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
             shadowColor: '#000',
-            shadowOpacity: 0.15,
-            shadowRadius: 6,
-            shadowOffset: { width: 0, height: 2 },
-            elevation: 2,
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 10,
             opacity: label.opacity,
-            transform: label.anim.getTranslateTransform(),
-            zIndex: 999999,
+            left: label.anim.x,
+            top: label.anim.y,
+            zIndex: 9999999, // Maximum z-index to render on top of everything
           }}
           pointerEvents="none"
         >
-          <Text style={{ color: 'black', fontWeight: 'bold' }}>caught it!</Text>
+          <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 18 }}>nice catch</Text>
         </Animated.View>
-        );
-      })}
+      ))}
     </>
   );
 };
@@ -628,7 +642,45 @@ export default function App() {
     onCaught: () => void;
     onMiss: () => void;
   } | null>(null);
+  
+  // Global caught text labels
+  const [globalCaughtLabels, setGlobalCaughtLabels] = useState<Array<{
+    id: number;
+    x: number;
+    y: number;
+    anim: Animated.ValueXY;
+    opacity: Animated.Value;
+  }>>([]);
+  const globalLabelIdRef = useRef(0);
 
+
+  // Function to spawn global caught labels
+  const spawnGlobalCaughtLabel = useCallback((screenX: number, screenY: number) => {
+    const id = globalLabelIdRef.current++;
+    const anim = new Animated.ValueXY({ x: screenX, y: screenY });
+    const opacity = new Animated.Value(1);
+    
+    setGlobalCaughtLabels(prev => [...prev, { id, x: screenX, y: screenY, anim, opacity }]);
+    
+    // Animate the label rising and fading
+    Animated.parallel([
+      Animated.timing(anim, {
+        toValue: { x: screenX, y: screenY - 70 },
+        duration: 900,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(300),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      setGlobalCaughtLabels(prev => prev.filter(l => l.id !== id));
+    });
+  }, []);
 
   //special npc animation
   const specialNpcAnimX = useRef(new Animated.Value(0)).current;
@@ -2302,7 +2354,7 @@ const renderNpcRow = () => (
               Hint:
             </Text>
             <Text style={{ fontSize: 18, color: '#333', textAlign: 'center', marginBottom: 20 }}>
-              Plan a few trades ahead.
+              Try to make favorable deals, and plan a few trades ahead.
             </Text>
             <TouchableOpacity
               style={{
@@ -2801,6 +2853,16 @@ const renderNpcRow = () => (
                     startY={droppingPottery.y}
                     onCaught={droppingPottery.onCaught}
                     onMiss={droppingPottery.onMiss}
+                    onCatchWithPosition={(x: number, y: number) => {
+                      // Calculate actual screen position
+                      // x and y are relative to the scene container
+                      // We need to account for the scene container's position
+                      const screenX = (width - TOTAL_SCENE_WIDTH) / 2 + x;
+                      const screenY = y + (height - VIRTUAL_HEIGHT * SCENE_SCALE);
+                      
+                      spawnGlobalCaughtLabel(screenX, screenY);
+                      droppingPottery.onCaught();
+                    }}
                   />
                 )}
                 
@@ -2916,6 +2978,32 @@ const renderNpcRow = () => (
         </>
       )}
       </View>
+      
+      {/* Global caught text labels - rendered at absolute root level */}
+      {globalCaughtLabels.map(label => (
+        <Animated.View
+          key={`global-caught-${label.id}`}
+          style={{
+            position: 'absolute',
+            backgroundColor: 'white',
+            borderRadius: 14,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            shadowColor: '#000',
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 10,
+            opacity: label.opacity,
+            left: label.anim.x,
+            top: label.anim.y,
+            zIndex: 99999999, // Absolute maximum z-index
+            pointerEvents: 'none',
+          }}
+        >
+          <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 18 }}>nice catch</Text>
+        </Animated.View>
+      ))}
     </View>
   );
 

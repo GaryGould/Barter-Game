@@ -226,7 +226,7 @@ const TUTORIAL_SLIDES: TutorialSlideConfig[] = [
     // Slide 11: Final slide before starting the game
     {
         type: 'final',
-        content: 'To win, trade for a cow',
+        content: 'To win, make smart trades until you can afford a cow',
     },
 ];
 

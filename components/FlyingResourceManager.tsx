@@ -425,7 +425,30 @@ export const FlyingResourceManager = forwardRef<FlyingResourceManagerHandle>((_,
                             const tapX = e.nativeEvent.pageX;
                             const tapY = e.nativeEvent.pageY;
                             // feedback exactly at the touch point
-                            spawnRisingLabel('caught it!', { x: tapX, y: tapY }, 70, 900, 300);
+                            const id = idRef.current++;
+                            const anim = new Animated.ValueXY({ x: tapX, y: tapY });
+                            const target = { x: tapX, y: tapY - 70 };
+                            const opacity = new Animated.Value(1);
+                            const label: FloatingLabel = { id, text: 'nice catch', anim, opacity };
+                            setLabels(prev => [...prev, label]);
+
+                            Animated.parallel([
+                                Animated.timing(anim, {
+                                    toValue: target,
+                                    duration: 900,
+                                    useNativeDriver: true,
+                                }),
+                                Animated.sequence([
+                                    Animated.delay(300),
+                                    Animated.timing(opacity, {
+                                        toValue: 0,
+                                        duration: 600,
+                                        useNativeDriver: true,
+                                    }),
+                                ]),
+                            ]).start(() => {
+                                setLabels(prev => prev.filter(l => l.id !== id));
+                            });
                             onCaught?.();
                         }}
                         style={{
